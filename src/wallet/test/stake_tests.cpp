@@ -281,7 +281,7 @@ BOOST_AUTO_TEST_CASE(stake_test)
 
             // Reduce the reward
             RegtestParams().SetCoinYearReward(1 * CENT);
-            BOOST_CHECK(Params().GetCoinYearReward(0) == 1 * CENT);
+            BOOST_CHECK(Params().GetProofOfStakeRewardAtYear(0) == 1 * CENT);
 
             BlockValidationState state;
             CCoinsViewCache view(&::ChainstateActive().CoinsTip());
@@ -293,7 +293,7 @@ BOOST_AUTO_TEST_CASE(stake_test)
 
             // Restore the reward
             RegtestParams().SetCoinYearReward(2 * CENT);
-            BOOST_CHECK(Params().GetCoinYearReward(0) == 2 * CENT);
+            BOOST_CHECK(Params().GetProofOfStakeRewardAtYear(0) == 2 * CENT);
 
             // Block should connect now
             BlockValidationState clearstate;

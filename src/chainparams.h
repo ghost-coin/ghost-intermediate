@@ -161,6 +161,8 @@ public:
         nBlockReward = nBlockReward_;
     }
 
+    Consensus::Params& GetConsensus_nc() { assert(strNetworkID == "regtest"); return consensus; }
+
 protected:
     CChainParams() {}
 
@@ -183,7 +185,6 @@ protected:
     uint32_t nLastImportHeight = 0;       // always 0 on ghost
 
     std::vector<std::pair<int64_t, TreasuryFundSettings> > vTreasuryFundSettings;
-
 
     uint64_t nPruneAfterHeight;
     uint64_t m_assumed_blockchain_size;
