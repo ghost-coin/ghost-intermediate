@@ -24,7 +24,7 @@
 
 #include <policy/policy.h>
 
-// Particl dependencies
+// Ghost dependencies
 #include <blind.h>
 #include <insight/balanceindex.h>
 
