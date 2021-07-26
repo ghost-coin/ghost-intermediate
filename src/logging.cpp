@@ -160,6 +160,7 @@ const CLogCategoryDesc LogCategories[] =
     {BCLog::RINGCT, "ringct"},
     {BCLog::POS, "pos"},
     {BCLog::HDWALLET, "hdwallet"},
+    {BCLog::SPORK, "spork"},
 
     {BCLog::ALL, "1"},
     {BCLog::ALL, "all"},

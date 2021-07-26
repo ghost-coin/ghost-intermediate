@@ -18,6 +18,7 @@
 #include <set>
 #include <string>
 #include <string.h>
+#include <unordered_map>
 #include <utility>
 #include <vector>
 
@@ -676,6 +677,8 @@ template<typename Stream, typename K, typename T> void Unserialize(Stream& is, s
  */
 template<typename Stream, typename K, typename T, typename Pred, typename A> void Serialize(Stream& os, const std::map<K, T, Pred, A>& m);
 template<typename Stream, typename K, typename T, typename Pred, typename A> void Unserialize(Stream& is, std::map<K, T, Pred, A>& m);
+template<typename Stream, typename K, typename T, typename Hash, typename Pred, typename A> void Serialize(Stream& os, const std::unordered_map<K, T, Hash, Pred, A>& m);
+template<typename Stream, typename K, typename T, typename Hash, typename Pred, typename A> void Unserialize(Stream& is, std::unordered_map<K, T, Hash, Pred, A>& m);
 
 /**
  * set
@@ -892,6 +895,28 @@ void Unserialize(Stream& is, std::pair<K, T>& item)
 /**
  * map
  */
+template<typename Stream, typename Map>
+void SerializeMap(Stream& os, const Map& m)
+{
+    WriteCompactSize(os, m.size());
+    for (const auto& entry : m)
+        Serialize(os, entry);
+}
+
+template<typename Stream, typename Map>
+void UnserializeMap(Stream& is, Map& m)
+{
+    m.clear();
+    unsigned int nSize = ReadCompactSize(is);
+    auto mi = m.begin();
+    for (unsigned int i = 0; i < nSize; i++)
+    {
+        std::pair<typename std::remove_const<typename Map::key_type>::type, typename std::remove_const<typename Map::mapped_type>::type> item;
+        Unserialize(is, item);
+        mi = m.insert(mi, item);
+    }
+}
+
 template<typename Stream, typename K, typename T, typename Pred, typename A>
 void Serialize(Stream& os, const std::map<K, T, Pred, A>& m)
 {
@@ -914,7 +939,17 @@ void Unserialize(Stream& is, std::map<K, T, Pred, A>& m)
     }
 }
 
+template<typename Stream, typename K, typename T, typename Hash, typename Pred, typename A>
+void Serialize(Stream& os, const std::unordered_map<K, T, Hash, Pred, A>& m)
+{
+    SerializeMap(os, m);
+}
 
+template<typename Stream, typename K, typename T, typename Hash, typename Pred, typename A>
+void Unserialize(Stream& is, std::unordered_map<K, T, Hash, Pred, A>& m)
+{
+    UnserializeMap(is, m);
+}
 
 /**
  * set

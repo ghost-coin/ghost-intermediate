@@ -167,6 +167,9 @@ void IncPersistentMisbehaviour(NodeId node_id, int howmuch) EXCLUSIVE_LOCKS_REQU
 int GetNumDOSStates() EXCLUSIVE_LOCKS_REQUIRED(cs_main);
 void ClearDOSStates() EXCLUSIVE_LOCKS_REQUIRED(cs_main);
 
+/** Relay inventory to every node */
+void RelayInventory(const CInv& inv, const CConnman& connman) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
+
 /** Relay transaction to every node */
 void RelayTransaction(const uint256& txid, const uint256& wtxid, const CConnman& connman) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
 
