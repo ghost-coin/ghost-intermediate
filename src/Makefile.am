@@ -150,6 +150,7 @@ BITCOIN_CORE_H = \
   cuckoocache.h \
   dbwrapper.h \
   flatfile.h \
+  flat-database.h \
   fs.h \
   httprpc.h \
   httpserver.h \
@@ -175,6 +176,7 @@ BITCOIN_CORE_H = \
   logging/timer.h \
   memusage.h \
   merkleblock.h \
+  messagesigner.h \
   miner.h \
   net.h \
   net_permissions.h \
@@ -232,6 +234,7 @@ BITCOIN_CORE_H = \
   smsg/net.h \
   smsg/smessage.h \
   smsg/rpcsmessage.h \
+  spork.h \
   support/allocators/secure.h \
   support/allocators/zeroafterfree.h \
   support/cleanse.h \
@@ -344,6 +347,7 @@ libghost_server_a_SOURCES = \
   init.cpp \
   interfaces/chain.cpp \
   interfaces/node.cpp \
+  messagesigner.cpp \
   miner.cpp \
   net.cpp \
   net_processing.cpp \
@@ -373,6 +377,7 @@ libghost_server_a_SOURCES = \
   script/sigcache.cpp \
   shutdown.cpp \
   signet.cpp \
+  spork.cpp \
   timedata.cpp \
   torcontrol.cpp \
   txdb.cpp \

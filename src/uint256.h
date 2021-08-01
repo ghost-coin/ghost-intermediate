@@ -12,6 +12,8 @@
 #include <string>
 #include <vector>
 
+#include <crypto/common.h>
+
 /** Template base class for fixed-sized opaque blobs. */
 template<unsigned int BITS>
 class base_blob
@@ -131,6 +133,16 @@ public:
     explicit uint256(const uint8_t *p, size_t l) : base_blob<256>(p, l) {}
     static const uint256 ZERO;
     static const uint256 ONE;
+
+    /** A cheap hash function that just returns 64 bits from the result, it can be
+     * used when the contents are considered uniformly random. It is not appropriate
+     * when the value can easily be influenced from outside as e.g. a network adversary could
+     * provide values to trigger worst-case behavior.
+     */
+    uint64_t GetCheapHash() const
+    {
+        return ReadLE64(m_data);
+    }
 };
 
 /* uint256 from const char *.
@@ -152,6 +164,17 @@ inline uint256 uint256S(const std::string& str)
     uint256 rv;
     rv.SetHex(str);
     return rv;
+}
+
+namespace std {
+    template <>
+    struct hash<uint256>
+    {
+        std::size_t operator()(const uint256& k) const
+        {
+            return (std::size_t)k.GetCheapHash();
+        }
+    };
 }
 
 #endif // BITCOIN_UINT256_H

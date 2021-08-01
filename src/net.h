@@ -908,6 +908,9 @@ public:
     CSemaphoreGrant grantOutbound;
     std::atomic<int> nRefCount{0};
 
+    //! relating to network sporks
+    bool m_asked_sporks{false};
+
     const uint64_t nKeyedNetGroup;
     std::atomic_bool fPauseRecv{false};
     std::atomic_bool fPauseSend{false};
@@ -1004,6 +1007,9 @@ public:
     // There is no final sorting before sending, as they are always sent immediately
     // and in the order requested.
     std::vector<uint256> vInventoryBlockToSend GUARDED_BY(cs_inventory);
+    // List of non-tx/non-block inventory items
+    std::vector<CInv> vInventoryOtherToSend GUARDED_BY(cs_inventory);
+
     Mutex cs_inventory;
 
     struct TxRelay {
@@ -1017,9 +1023,11 @@ public:
 
         mutable RecursiveMutex cs_tx_inventory;
         CRollingBloomFilter filterInventoryKnown GUARDED_BY(cs_tx_inventory){50000, 0.000001};
+        CRollingBloomFilter filterInventoryKnownOther GUARDED_BY(cs_tx_inventory){50000, 0.000001};
         // Set of transaction ids we still have to announce.
         // They are sorted by the mempool before relay, so the order is not important.
         std::set<uint256> setInventoryTxToSend;
+        std::set<CInv> setInventoryTxToSendOther;
         // Used for BIP35 mempool sending
         bool fSendMempool GUARDED_BY(cs_tx_inventory){false};
         // Last time a "MEMPOOL" request was serviced.
@@ -1182,12 +1190,19 @@ public:
         }
     }
 
-
     void AddKnownTx(const uint256& hash)
     {
         if (m_tx_relay != nullptr) {
             LOCK(m_tx_relay->cs_tx_inventory);
             m_tx_relay->filterInventoryKnown.insert(hash);
+        }
+    }
+
+    void AddKnownInv(const CInv& inv)
+    {
+        if (m_tx_relay != nullptr) {
+            LOCK(m_tx_relay->cs_tx_inventory);
+            m_tx_relay->filterInventoryKnownOther.insert(inv.hash);
         }
     }
 
@@ -1197,6 +1212,15 @@ public:
         LOCK(m_tx_relay->cs_tx_inventory);
         if (!m_tx_relay->filterInventoryKnown.contains(hash)) {
             m_tx_relay->setInventoryTxToSend.insert(hash);
+        }
+    }
+
+    void PushOtherInventory(const CInv& inv)
+    {
+        if (m_tx_relay == nullptr) return;
+        LOCK(m_tx_relay->cs_tx_inventory);
+        if (!m_tx_relay->filterInventoryKnown.contains(inv.hash)) {
+            m_tx_relay->setInventoryTxToSendOther.insert(inv);
         }
     }
 

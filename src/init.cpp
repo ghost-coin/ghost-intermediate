@@ -17,6 +17,7 @@
 #include <chainparams.h>
 #include <compat/sanity.h>
 #include <consensus/validation.h>
+#include <flat-database.h>
 #include <fs.h>
 #include <hash.h>
 #include <httprpc.h>
@@ -46,6 +47,7 @@
 #include <script/sigcache.h>
 #include <script/standard.h>
 #include <shutdown.h>
+#include <spork.h>
 #include <sync.h>
 #include <timedata.h>
 #include <torcontrol.h>
@@ -320,6 +322,10 @@ void Shutdown(NodeContext& node)
     if (g_load_block.joinable()) g_load_block.join();
     threadGroup.interrupt_all();
     threadGroup.join_all();
+
+    // Store seen sporks to disk
+    CFlatDB<CSporkManager> flatdb("sporks.dat", "magicSporkCache");
+    flatdb.Dump(sporkManager);
 
     // After the threads that potentially access these pointers have been stopped,
     // destruct and reset all to nullptr.
@@ -689,6 +695,7 @@ void SetupServerArgs(NodeContext& node)
     argsman.AddArg("-printpriority", strprintf("Log transaction fee per kB when mining blocks (default: %u)", DEFAULT_PRINTPRIORITY), ArgsManager::ALLOW_ANY | ArgsManager::DEBUG_ONLY, OptionsCategory::DEBUG_TEST);
     argsman.AddArg("-printtoconsole", "Send trace/debug info to console (default: 1 when no -daemon. To disable logging to file, set -nodebuglogfile)", ArgsManager::ALLOW_ANY, OptionsCategory::DEBUG_TEST);
     argsman.AddArg("-shrinkdebugfile", "Shrink debug.log file on client startup (default: 1 when no -debug)", ArgsManager::ALLOW_ANY, OptionsCategory::DEBUG_TEST);
+    argsman.AddArg("-sporkkey=<privatekey>", "Set the private key to be used for signing spork messages.", false, OptionsCategory::DEBUG_TEST);
     argsman.AddArg("-uacomment=<cmt>", "Append comment to the user agent string", ArgsManager::ALLOW_ANY, OptionsCategory::DEBUG_TEST);
 
     SetupChainParamsBaseOptions(argsman);
@@ -1524,6 +1531,32 @@ bool AppInitMain(const util::Ref& context, NodeContext& node, interfaces::BlockA
         }
     }
 
+    // Validate spork addresses are correct type
+    std::vector<std::string> vSporkAddresses;
+    if (gArgs.IsArgSet("-sporkaddr")) {
+        vSporkAddresses = gArgs.GetArgs("-sporkaddr");
+    } else {
+        vSporkAddresses = Params().SporkAddresses();
+    }
+
+    for (const auto& address: vSporkAddresses) {
+        if (!sporkManager.SetSporkAddress(address)) {
+            return InitError(_("Invalid spork address specified with -sporkaddr"));
+        }
+    }
+
+    int minsporkkeys = gArgs.GetArg("-minsporkkeys", Params().MinSporkKeys());
+    if (!sporkManager.SetMinSporkKeys(minsporkkeys)) {
+        return InitError(_("Invalid minimum number of spork signers specified with -minsporkkeys"));
+    }
+
+
+    if (gArgs.IsArgSet("-sporkkey")) { // spork priv key
+        if (!sporkManager.SetPrivKey(gArgs.GetArg("-sporkkey", ""))) {
+            return InitError(_("Unable to sign spork message, wrong key?"));
+        }
+    }
+
     assert(!node.scheduler);
     node.scheduler = MakeUnique<CScheduler>();
 
@@ -1727,7 +1760,14 @@ bool AppInitMain(const util::Ref& context, NodeContext& node, interfaces::BlockA
         nMaxOutboundLimit = args.GetArg("-maxuploadtarget", DEFAULT_MAX_UPLOAD_TARGET) * 1024 * 1024;
     }
 
-    // ********************************************************* Step 7: load block chain
+    // ********************************************************* Step 7a: load sporks
+    uiInterface.InitMessage("Loading sporks cache...");
+    CFlatDB<CSporkManager> flatdb("sporks.dat", "magicSporkCache");
+    if (!flatdb.Load(sporkManager)) {
+        return InitError(Untranslated("Failed to load sporks cache"));
+    }
+
+    // ********************************************************* Step 7b: load block chain
 
     fReindex = args.GetBoolArg("-reindex", false);
     fSkipRangeproof = args.GetBoolArg("-skiprangeproofverify", false);

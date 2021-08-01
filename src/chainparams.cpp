@@ -480,6 +480,9 @@ public:
         m_is_test_chain = false;
         m_is_mockable_chain = false;
 
+        vSporkAddresses = {"GS3HidtGqigR4QCMSXXtTPtofhHPAgQFPE"};
+        nMinSporkKeys = 1;
+
         checkpointData = {
             {
                 { 0, genesis.GetHash()},

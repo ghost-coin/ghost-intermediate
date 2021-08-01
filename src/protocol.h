@@ -260,6 +260,12 @@ extern const char* CFCHECKPT;
  * @since protocol version 70016 as described by BIP 339.
  */
 extern const char* WTXIDRELAY;
+/**
+ * spork/getsporks allows a signed & dated network message to be distributed to
+ * all active nodes.
+ */
+extern const char *SPORK;
+extern const char *GETSPORKS;
 }; // namespace NetMsgType
 
 /* Get a vector of all valid message types (see above) */
@@ -417,6 +423,7 @@ enum GetDataMsg : uint32_t {
     MSG_TX = 1,
     MSG_BLOCK = 2,
     MSG_WTX = 5,                                      //!< Defined in BIP 339
+    MSG_SPORK = 6,
     // The following can only occur in getdata. Invs always use TX/WTX or BLOCK.
     MSG_FILTERED_BLOCK = 3,                           //!< Defined in BIP37
     MSG_CMPCT_BLOCK = 4,                              //!< Defined in BIP152
@@ -457,6 +464,10 @@ public:
     bool IsGenBlkMsg() const
     {
         return type == MSG_BLOCK || type == MSG_FILTERED_BLOCK || type == MSG_CMPCT_BLOCK || type == MSG_WITNESS_BLOCK;
+    }
+    bool IsMnType() const
+    {
+        return type == MSG_SPORK;
     }
 
     uint32_t type;

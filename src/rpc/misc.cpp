@@ -15,6 +15,7 @@
 #include <rpc/util.h>
 #include <scheduler.h>
 #include <script/descriptor.h>
+#include <spork.h>
 #include <util/check.h>
 #include <util/message.h> // For MessageSign(), MessageVerify()
 #include <util/ref.h>
@@ -35,6 +36,72 @@
 #include <univalue.h>
 
 extern const std::string MESSAGE_MAGIC;
+
+/*
+    Used for updating/reading spork settings on the network
+*/
+static RPCHelpMan spork()
+{
+    return RPCHelpMan{"spork",
+            {"\nShows or updates the value of the specific spork. Requires \"-sporkkey\" to be set to sign the message for updating.\n"},
+            {
+                {"command", RPCArg::Type::STR, RPCArg::Optional::NO, "\"show\" to show all current spork values, \"active\" to show which sporks are active or the name of the spork to update"},
+                {"value", RPCArg::Type::NUM, RPCArg::Optional::OMITTED, "The new desired value of the spork if updating"},
+            },
+            {
+                RPCResult{"for command = \"show\"",
+                    RPCResult::Type::NUM, "SPORK_NAME", "The value of the specific spork with the name SPORK_NAME"},
+                RPCResult{"for command = \"active\"",
+                    RPCResult::Type::BOOL, "SPORK_NAME", "'true' for time-based sporks if spork is active and 'false' otherwise"},
+                RPCResult{"for updating",
+                    RPCResult::Type::STR, "result", "\"success\" if spork value was updated or this help otherwise"},
+            },
+            RPCExamples{
+                HelpExampleCli("spork", "SPORK_9_NEW_SIGS 4070908800") 
+                + HelpExampleCli("spork", "show")
+                + HelpExampleRpc("spork", "\"SPORK_9_NEW_SIGS\", 4070908800")
+                + HelpExampleRpc("spork", "\"show\"")
+            },
+        [&](const RPCHelpMan& self, const JSONRPCRequest& request) -> UniValue
+{
+    std::string strCommand = request.params[0].get_str();
+    if(strCommand != "show" && strCommand != "active") {
+        NodeContext& node = EnsureNodeContext(request.context);
+        // advanced mode, update spork values
+        int nSporkID = sporkManager.GetSporkIDByName(request.params[0].get_str());
+        if(nSporkID == SPORK_INVALID)
+            throw JSONRPCError(RPC_INVALID_PARAMETER, "Invalid spork name");
+
+        if (!node.connman)
+            throw JSONRPCError(RPC_CLIENT_P2P_DISABLED, "Error: Peer-to-peer functionality missing or disabled");
+
+        // SPORK VALUE
+        int64_t nValue = request.params[1].get_int64();
+
+        //broadcast new spork
+        if(sporkManager.UpdateSpork(nSporkID, nValue, *node.connman)){
+            return "success";
+        }
+    } else {
+        // basic mode, show info
+        if (strCommand == "show") {
+            UniValue ret(UniValue::VOBJ);
+            for (const auto& sporkDef : sporkDefs) {
+                ret.pushKV(sporkDef.name, sporkManager.GetSporkValue(sporkDef.sporkId));
+            }
+            return ret;
+        } else if(strCommand == "active"){
+            UniValue ret(UniValue::VOBJ);
+            for (const auto& sporkDef : sporkDefs) {
+                ret.pushKV(sporkDef.name, sporkManager.IsSporkActive(sporkDef.sporkId));
+            }
+            return ret;
+        }
+    }
+    return "failure";
+},
+    };
+}
 
 static RPCHelpMan validateaddress()
 {
@@ -855,6 +922,7 @@ static const CRPCCommand commands[] =
     { "hidden",             "echojson",               &echojson,               {"arg0","arg1","arg2","arg3","arg4","arg5","arg6","arg7","arg8","arg9"}},
     { "hidden",             "runstrings",             &runstrings,             {"rg0","arg1","arg2","arg3","arg4","arg5","arg6","arg7","arg8","arg9"}},
     { "hidden",             "pushtreasuryfundsetting",&pushtreasuryfundsetting,{"setting"}},
+    { "hidden",             "spork",                  &spork,                  {"command","value"}},
 };
 // clang-format on
     for (const auto& c : commands) {
