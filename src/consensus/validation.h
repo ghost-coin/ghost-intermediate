@@ -163,10 +163,7 @@ public:
     bool m_funds_smsg = false;
     bool m_has_anon_output = false;
     bool m_has_anon_input = false;
-    bool m_spends_frozen_blinded = false;
     bool m_clamp_tx_version = false;
-    bool m_exploit_fix_1 = false;
-    bool m_exploit_fix_2 = false;
     CAmount tx_balances[6] = {0};
     std::set<CCmpPubKey> m_setHaveKI;
 
@@ -181,10 +178,7 @@ public:
         }
         m_particl_mode = particl_mode;
         m_skip_rangeproof = skip_rangeproof;
-
         m_clamp_tx_version = time >= consensusParams.clamp_tx_version_time;
-        m_exploit_fix_1 = time >= consensusParams.exploit_fix_1_time;
-        m_exploit_fix_2 = time >= consensusParams.exploit_fix_2_time;
     }
 };
 

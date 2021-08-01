@@ -5,6 +5,7 @@
 
 #include <validation.h>
 
+#include <adapter.h>
 #include <arith_uint256.h>
 #include <chain.h>
 #include <chainparams.h>
@@ -1649,6 +1650,7 @@ bool CChainState::IsInitialBlockDownload() const
         return true;
 
     LogPrintf("Leaving InitialBlockDownload (latching to false)\n");
+    set_full_validation();
     m_cached_finished_ibd.store(true, std::memory_order_relaxed);
     return false;
 }
@@ -1962,13 +1964,8 @@ bool CheckInputScripts(const CTransaction& tx, TxValidationState &state, const C
         }
     }
 
-    // figure out 'when' we are
-    uint32_t nTime = std::numeric_limits<int>::max();
-    CBlockIndex *pindexPrev = ::ChainActive().Tip()->pprev;
-    if (pindexPrev)
-        nTime = pindexPrev->GetBlockHeader().nTime;
-
-    if (exploit_fixtime_passed(nTime) &&
+    //! unfortunately to sync we must turn a blind eye temporarily
+    if (is_full_validation() &&
         m_has_anon_input && fAnonChecks
         && !VerifyMLSAG(tx, state)) {
         return false;
@@ -2733,17 +2730,12 @@ bool CChainState::ConnectBlock(const CBlock& block, BlockValidationState& state,
                             tx_state.GetRejectReason(), tx_state.GetDebugMessage());
                 return error("%s: Consensus::CheckTxInputs: %s, %s", __func__, tx.GetHash().ToString(), state.ToString());
             }
-            if (tx_state.m_exploit_fix_2 && tx_state.m_spends_frozen_blinded) {
-                // Add redeemed frozen blinded value to moneysupply
-                nMoneyCreated += tx.GetValueOut() + txfee;
-            }
             if (tx.IsCoinStake())
             {
                 // Block reward is passed back in txfee (nPlainValueOut - nPlainValueIn)
                 nStakeReward += txfee;
                 nMoneyCreated += nStakeReward;
-            } else
-            {
+            } else {
                 nFees += txfee;
             }
             if (!MoneyRange(nFees)) {
@@ -2841,7 +2833,7 @@ bool CChainState::ConnectBlock(const CBlock& block, BlockValidationState& state,
             std::vector<CScriptCheck> vChecks;
             bool fCacheResults = fJustCheck; /* Don't cache results if we're actually connecting blocks (still consult the cache, though) */
             //TxValidationState tx_state;
-            if (fScriptChecks && !CheckInputScripts(tx, tx_state, view, flags, fCacheResults, fCacheResults, txsdata[i], g_parallel_script_checks ? &vChecks : nullptr)) {
+            if (fScriptChecks && !CheckInputScripts(tx, tx_state, view, flags, fCacheResults, fCacheResults, txsdata[i], g_parallel_script_checks ? &vChecks : nullptr, true)) {
                 control.Wait();
                 // Any transaction validation failure in ConnectBlock is a block consensus failure
                 state.Invalid(BlockValidationResult::BLOCK_CONSENSUS,
@@ -2866,14 +2858,15 @@ bool CChainState::ConnectBlock(const CBlock& block, BlockValidationState& state,
         }
 
         // Index rct outputs and keyimages
-        if (exploit_fixtime_passed(block.nTime) && (tx_state.m_has_anon_output || tx_state.m_has_anon_input)) {
+        if (tx_state.m_has_anon_output || tx_state.m_has_anon_input) {
             COutPoint op(txhash, 0);
             if (tx_state.m_has_anon_input) {
                 assert(tx_state.m_setHaveKI.size());
             }
             for (const auto &ki : tx_state.m_setHaveKI) {
                 // Test for duplicate keyimage used in block
-                if (!view.keyImages.insert(std::make_pair(ki, txhash)).second) {
+                if (is_full_validation() &&
+                    !view.keyImages.insert(std::make_pair(ki, txhash)).second) {
                     return state.Invalid(BlockValidationResult::BLOCK_CONSENSUS, "bad-anonin-dup-ki");
                 }
             }
@@ -3139,16 +3132,8 @@ bool CChainState::ConnectBlock(const CBlock& block, BlockValidationState& state,
     if (fJustCheck)
         return true;
 
-    if (block.nTime >= consensus.exploit_fix_2_time && pindex->pprev && pindex->pprev->nTime < consensus.exploit_fix_2_time) {
-        // TODO: Set to block height after fork
-        // Set moneysupply to utxoset sum
-        pindex->nMoneySupply = GetUTXOSum() + nMoneyCreated;
-        LogPrintf("RCT mint fix HF2, set nMoneySupply to: %d\n", pindex->nMoneySupply);
-        reset_balances = true;
-        block_balances[BAL_IND_PLAIN] = pindex->nMoneySupply;
-    } else {
-        pindex->nMoneySupply = (pindex->pprev ? pindex->pprev->nMoneySupply : 0) + nMoneyCreated;
-    }
+    //! Remove manual nMoneySupply reset from particl
+    pindex->nMoneySupply = (pindex->pprev ? pindex->pprev->nMoneySupply : 0) + nMoneyCreated;
     pindex->nAnonOutputs = view.nLastRCTOutput;
     setDirtyBlockIndex.insert(pindex); // pindex has changed, must save to disk
 

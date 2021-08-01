@@ -52,6 +52,8 @@ struct DisconnectedBlockTransactions;
 struct PrecomputedTransactionData;
 struct LockPoints;
 
+/** Disable MLSAG tests before a given block height */
+static const unsigned int DISABLE_MLSAG_VER_BEFORE_HEIGHT = 290000;
 /** Default for -minrelaytxfee, minimum relay fee for transactions */
 static const unsigned int DEFAULT_MIN_RELAY_TX_FEE = 1000;
 /** Default for -limitancestorcount, max number of in-mempool ancestors */
@@ -72,7 +74,7 @@ static const int MAX_SCRIPTCHECK_THREADS = 15;
 static const int DEFAULT_SCRIPTCHECK_THREADS = 0;
 static const int64_t DEFAULT_MAX_TIP_AGE = 24 * 60 * 60;
 static const bool DEFAULT_CHECKPOINTS_ENABLED = true;
-static const bool DEFAULT_TXINDEX = false;
+static const bool DEFAULT_TXINDEX = true;
 static const bool DEFAULT_GHOSTDEBUG = false;
 static const bool DEFAULT_DANDELION = true;
 static const char* const DEFAULT_BLOCKFILTERINDEX = "0";
