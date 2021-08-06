@@ -298,6 +298,7 @@ public:
     virtual CTransactionRef transactionFromMempool(const uint256 &txhash) = 0;
     virtual std::unique_ptr<CBlockTemplate> createNewBlock() = 0;
     virtual CTxMemPool* getMempool() = 0;
+    virtual CTxMemPool* getStempool() = 0;
 };
 
 //! Interface to let node manage chain clients (wallets, or maybe tools for

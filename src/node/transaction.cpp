@@ -48,14 +48,14 @@ TransactionError BroadcastTransaction(NodeContext& node, const CTransactionRef t
         // So if the output does exist, then this transaction exists in the chain.
         if (!existingCoin.IsSpent()) return TransactionError::ALREADY_IN_CHAIN;
     }
-    if (!node.mempool->exists(hashTx)) {
+    if (!node.mempool->exists(hashTx) || !node.stempool->exists(hashTx)) {
         // Transaction is not already in the mempool.
         TxValidationState state;
         if (max_tx_fee > 0) {
             // First, call ATMP with test_accept and check the fee. If ATMP
             // fails here, return error immediately.
             CAmount fee{0};
-            if (!AcceptToMemoryPool(*node.mempool, state, tx,
+            if (!AcceptToMemoryPool(*node.mempool, *node.stempool, state, tx,
                 nullptr /* plTxnReplaced */, false /* bypass_limits */, /* test_accept */ true, &fee)) {
                 return HandleATMPError(state, err_string);
             } else if (fee > max_tx_fee) {
@@ -63,7 +63,7 @@ TransactionError BroadcastTransaction(NodeContext& node, const CTransactionRef t
             }
         }
         // Try to submit the transaction to the mempool.
-        if (!AcceptToMemoryPool(*node.mempool, state, tx,
+        if (!AcceptToMemoryPool(*node.mempool, *node.stempool, state, tx,
                 nullptr /* plTxnReplaced */, false /* bypass_limits */)) {
             return HandleATMPError(state, err_string);
         }

@@ -371,7 +371,7 @@ bool RollBackRCTIndex(int64_t nLastValidRCTOutput, int64_t nExpectErase, std::se
     return true;
 };
 
-bool RewindToHeight(CTxMemPool& mempool, int nToHeight, int &nBlocks, std::string &sError)
+bool RewindToHeight(CTxMemPool& mempool, CTxMemPool& stempool, int nToHeight, int &nBlocks, std::string &sError)
 {
     LogPrintf("%s: height %d\n", __func__, nToHeight);
     nBlocks = 0;
@@ -405,7 +405,7 @@ bool RewindToHeight(CTxMemPool& mempool, int nToHeight, int &nBlocks, std::strin
         }
 
         ::ChainActive().SetTip(pindex->pprev);
-        UpdateTip(mempool, pindex->pprev, chainparams);
+        UpdateTip(mempool, stempool, pindex->pprev, chainparams);
         GetMainSignals().BlockDisconnected(pblock, pindex);
     }
     nLastRCTOutput = ::ChainActive().Tip()->nAnonOutputs;

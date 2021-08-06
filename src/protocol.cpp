@@ -38,6 +38,7 @@ const char *SENDCMPCT="sendcmpct";
 const char *CMPCTBLOCK="cmpctblock";
 const char *GETBLOCKTXN="getblocktxn";
 const char *BLOCKTXN="blocktxn";
+const char *DANDELIONTX="dandeliontx";
 const char *SPORK="spork";
 const char *GETSPORKS="getsporks";
 const char *GETCFILTERS="getcfilters";
@@ -80,6 +81,7 @@ const static std::string allNetMessageTypes[] = {
     NetMsgType::CMPCTBLOCK,
     NetMsgType::GETBLOCKTXN,
     NetMsgType::BLOCKTXN,
+    NetMsgType::DANDELIONTX,
     NetMsgType::GETCFILTERS,
     NetMsgType::CFILTER,
     NetMsgType::GETCFHEADERS,
@@ -177,6 +179,7 @@ std::string CInv::GetCommand() const
     case MSG_BLOCK:          return cmd.append(NetMsgType::BLOCK);
     case MSG_FILTERED_BLOCK: return cmd.append(NetMsgType::MERKLEBLOCK);
     case MSG_CMPCT_BLOCK:    return cmd.append(NetMsgType::CMPCTBLOCK);
+    case MSG_DANDELION_TX:   return cmd.append(NetMsgType::DANDELIONTX);
     case MSG_SPORK:          return cmd.append(NetMsgType::SPORK);
     default:
         throw std::out_of_range(strprintf("CInv::GetCommand(): type=%d unknown type", type));
