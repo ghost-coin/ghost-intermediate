@@ -32,7 +32,7 @@ struct LogCategory {
 };
 
 namespace BCLog {
-    enum LogFlags : uint32_t {
+    enum LogFlags : int64_t {
         NONE        = 0,
         NET         = (1 <<  0),
         TOR         = (1 <<  1),
@@ -57,13 +57,13 @@ namespace BCLog {
         LEVELDB     = (1 << 20),
         VALIDATION  = (1 << 21),
         SPORK       = (1 << 22),
-
         SMSG        = (1 << 27),
         RINGCT      = (1 << 28),
         POS         = (1 << 29),
         HDWALLET    = (1 << 30),
+        DANDELION   = (1 << 31),
 
-        ALL         = ~(uint32_t)0,
+        ALL         = ~(int64_t)0,
     };
 
     class Logger

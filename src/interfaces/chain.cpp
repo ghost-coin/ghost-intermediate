@@ -448,6 +448,10 @@ public:
     {
         return m_node.mempool.get();
     }
+    CTxMemPool *getStempool() override
+    {
+        return m_node.stempool.get();
+    }
 };
 } // namespace
 

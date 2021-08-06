@@ -91,6 +91,17 @@ static const bool DEFAULT_FORCEDNSSEED = false;
 static const size_t DEFAULT_MAXRECEIVEBUFFER = 5 * 1000;
 static const size_t DEFAULT_MAXSENDBUFFER    = 1 * 1000;
 
+static const uint256 DANDELION_DISCOVERYHASH = uint256S("0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
+
+/** Maximum number of outbound peers designated as Dandelion destinations */
+static const int DANDELION_MAX_DESTINATIONS = 2;
+/** Expected time between Dandelion routing shuffles (in seconds). */
+static constexpr std::chrono::seconds DANDELION_SHUFFLE_INTERVAL(600);
+/** The minimum amount of time a Dandelion transaction is embargoed (seconds) */
+static constexpr std::chrono::seconds DANDELION_EMBARGO_MINIMUM(10);
+/** The average additional embargo time beyond the minimum amount (seconds) */
+static constexpr std::chrono::seconds DANDELION_EMBARGO_AVG_ADD(20);
+
 typedef int64_t NodeId;
 
 
@@ -401,6 +412,19 @@ public:
 
     void WakeMessageHandler();
 
+    // Public Dandelion field
+    std::map<uint256, std::chrono::microseconds> mDandelionEmbargo;
+    // Dandelion methods
+    bool usingDandelion() const;
+    bool isDandelionInbound(const CNode* const pnode) const;
+    bool isLocalDandelionDestinationSet() const;
+    bool setLocalDandelionDestination();
+    CNode* getDandelionDestination(CNode* pfrom);
+    bool localDandelionDestinationPushInventory(const CInv& inv);
+    bool insertDandelionEmbargo(const uint256& hash, std::chrono::microseconds& embargo);
+    bool isTxDandelionEmbargoed(const uint256& hash) const;
+    bool removeDandelionEmbargo(const uint256& hash);
+
     /** Attempts to obfuscate tx time through exponentially distributed emitting.
         Works assuming that a single interval is used.
         Variable intervals will result in privacy decrease.
@@ -440,6 +464,7 @@ public:
     void SocketHandler();
     void ThreadSocketHandler();
     void ThreadDNSAddressSeed();
+    void ThreadDandelionShuffle();
 
     uint64_t CalculateKeyedNetGroup(const CAddress& ad) const;
 
@@ -512,6 +537,18 @@ public:
     mutable RecursiveMutex cs_vNodes;
     std::atomic<NodeId> nLastNodeId{0};
     unsigned int nPrevNodeCount{0};
+
+    // Dandelion fields
+    std::vector<CNode*> vDandelionInbound;
+    std::vector<CNode*> vDandelionOutbound;
+    std::vector<CNode*> vDandelionDestination;
+    CNode* localDandelionDestination = nullptr;
+    std::map<CNode*, CNode*> mDandelionRoutes;
+    // Dandelion helper functions
+    CNode* SelectFromDandelionDestinations() const;
+    void CloseDandelionConnections(const CNode* const pnode);
+    std::string GetDandelionRoutingDataDebugString() const;
+    void DandelionShuffle();
 
     /**
      * Cache responses to addr requests to minimize privacy leak.
@@ -598,6 +635,7 @@ public:
     std::thread threadOpenAddedConnections;
     std::thread threadOpenConnections;
     std::thread threadMessageHandler;
+    std::thread threadDandelionShuffle;
 
     /** flag for deciding to connect to an extra outbound peer,
      *  in excess of m_max_outbound_full_relay
@@ -907,6 +945,7 @@ public:
     bool fSentAddr{false};
     CSemaphoreGrant grantOutbound;
     std::atomic<int> nRefCount{0};
+    bool fSupportsDandelion{false};
 
     //! relating to network sporks
     bool m_asked_sporks{false};
@@ -1009,6 +1048,8 @@ public:
     std::vector<uint256> vInventoryBlockToSend GUARDED_BY(cs_inventory);
     // List of non-tx/non-block inventory items
     std::vector<CInv> vInventoryOtherToSend GUARDED_BY(cs_inventory);
+    // List of dandelion inventory items
+    std::vector<uint256> vInventoryDandelionTxToSend GUARDED_BY(cs_inventory);
 
     Mutex cs_inventory;
 
@@ -1028,6 +1069,7 @@ public:
         // They are sorted by the mempool before relay, so the order is not important.
         std::set<uint256> setInventoryTxToSend;
         std::set<CInv> setInventoryTxToSendOther;
+        std::set<uint256> setDandelionInventoryKnown;
         // Used for BIP35 mempool sending
         bool fSendMempool GUARDED_BY(cs_tx_inventory){false};
         // Last time a "MEMPOOL" request was serviced.
