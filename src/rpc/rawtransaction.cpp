@@ -1106,6 +1106,7 @@ static RPCHelpMan testmempoolaccept()
     bool ignore_locks = !request.params[2].isNull() ? request.params[2].get_bool() : false;
 
     CTxMemPool& mempool = EnsureMemPool(request.context);
+    CTxMemPool& stempool = EnsureMemPool(request.context);
     int64_t virtual_size = GetVirtualTransactionSize(*tx);
     CAmount max_raw_tx_fee = max_raw_tx_fee_rate.GetFee(virtual_size);
 
@@ -1118,7 +1119,7 @@ static RPCHelpMan testmempoolaccept()
     CAmount fee{0};
     {
         LOCK(cs_main);
-        test_accept_res = AcceptToMemoryPool(mempool, state, std::move(tx),
+        test_accept_res = AcceptToMemoryPool(mempool, stempool, state, std::move(tx),
             nullptr /* plTxnReplaced */, false /* bypass_limits */, /* test_accept */ true, &fee, /* ignore_locks */ ignore_locks);
     }
 

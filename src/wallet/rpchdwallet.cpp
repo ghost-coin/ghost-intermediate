@@ -5340,12 +5340,13 @@ static UniValue SendToInner(const JSONRPCRequest &request, OutputTypes typeIn, O
     bool mempool_allowed = false;
     if (fTestMempoolAccept) {
         CTxMemPool *mempool = pwallet->HaveChain() ? pwallet->chain().getMempool() : nullptr;
-        if (!mempool) {
-            throw JSONRPCError(RPC_WALLET_ERROR, "Unable to get mempool");
+        CTxMemPool *stempool = pwallet->HaveChain() ? pwallet->chain().getStempool() : nullptr;
+        if (!mempool || !stempool) {
+            throw JSONRPCError(RPC_WALLET_ERROR, "Unable to get mempool/stempool");
         }
         TxValidationState state;
         CAmount fee{0};
-        bool accept_result = WITH_LOCK(cs_main, return AcceptToMemoryPool(*mempool, state, wtx.tx, nullptr,
+        bool accept_result = WITH_LOCK(cs_main, return AcceptToMemoryPool(*mempool, *stempool, state, wtx.tx, nullptr,
                                        false /* bypass_limits */, /* test_accept */ true, &fee, /* ignore_locks */ false));
         if (accept_result) {
             mempool_allowed = true;
@@ -9369,8 +9370,13 @@ static UniValue rewindchain(const JSONRPCRequest &request)
         throw JSONRPCError(RPC_WALLET_ERROR, "Unable to get mempool");
     }
 
+    CTxMemPool *stempool = pwallet->HaveChain() ? pwallet->chain().getStempool() : nullptr;
+    if (!stempool) {
+        throw JSONRPCError(RPC_WALLET_ERROR, "Unable to get stempool");
+    }
+
     std::string sError;
-    if (!RewindToHeight(*mempool, nToHeight, nBlocks, sError)) {
+    if (!RewindToHeight(*mempool, *stempool, nToHeight, nBlocks, sError)) {
         result.pushKV("error", sError);
     }
 

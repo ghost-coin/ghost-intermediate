@@ -43,7 +43,7 @@ bool AllAnonOutputsUnknown(const CTransaction &tx, TxValidationState &state);
 
 bool RollBackRCTIndex(int64_t nLastValidRCTOutput, int64_t nExpectErase, std::set<CCmpPubKey> &setKi) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
 
-bool RewindToHeight(CTxMemPool& mempool, int nToHeight, int &nBlocks, std::string &sError) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
+bool RewindToHeight(CTxMemPool& mempool, CTxMemPool& stempool, int nToHeight, int &nBlocks, std::string &sError) EXCLUSIVE_LOCKS_REQUIRED(cs_main);
 
 bool RewindRangeProof(const std::vector<uint8_t> &rangeproof, const std::vector<uint8_t> &commitment, const uint256 &nonce,
                       std::vector<uint8_t> &blind_out, CAmount &value_out);

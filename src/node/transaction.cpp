@@ -48,14 +48,14 @@ TransactionError BroadcastTransaction(NodeContext& node, const CTransactionRef t
         // So if the output does exist, then this transaction exists in the chain.
         if (!existingCoin.IsSpent()) return TransactionError::ALREADY_IN_CHAIN;
     }
-    if (!node.mempool->exists(hashTx)) {
+    if (!node.mempool->exists(hashTx) || !node.stempool->exists(hashTx)) {
         // Transaction is not already in the mempool.
         TxValidationState state;
         if (max_tx_fee > 0) {
             // First, call ATMP with test_accept and check the fee. If ATMP
             // fails here, return error immediately.
             CAmount fee{0};
-            if (!AcceptToMemoryPool(*node.mempool, state, tx,
+            if (!AcceptToMemoryPool(*node.mempool, *node.stempool, state, tx,
                 nullptr /* plTxnReplaced */, false /* bypass_limits */, /* test_accept */ true, &fee)) {
                 return HandleATMPError(state, err_string);
             } else if (fee > max_tx_fee) {
@@ -63,7 +63,7 @@ TransactionError BroadcastTransaction(NodeContext& node, const CTransactionRef t
             }
         }
         // Try to submit the transaction to the mempool.
-        if (!AcceptToMemoryPool(*node.mempool, state, tx,
+        if (!AcceptToMemoryPool(*node.mempool, *node.stempool, state, tx,
                 nullptr /* plTxnReplaced */, false /* bypass_limits */)) {
             return HandleATMPError(state, err_string);
         }
@@ -98,8 +98,25 @@ TransactionError BroadcastTransaction(NodeContext& node, const CTransactionRef t
         // the mempool tracks locally submitted transactions to make a
         // best-effort of initial broadcast
         node.mempool->AddUnbroadcastTx(hashTx);
+        node.stempool->AddUnbroadcastTx(hashTx);
 
         LOCK(cs_main);
+
+        // broadcast for dandelion..
+        if (node.connman->usingDandelion()) {
+            auto current_time = GetTime<std::chrono::milliseconds>();
+            std::chrono::microseconds nEmbargo = DANDELION_EMBARGO_MINIMUM + PoissonNextSend(current_time, DANDELION_EMBARGO_AVG_ADD);
+            node.connman->insertDandelionEmbargo(hashTx, nEmbargo);
+            auto embargo_timeout = std::chrono::duration_cast<std::chrono::seconds>(nEmbargo - current_time).count();
+            LogPrint(BCLog::DANDELION, "dandeliontx %s embargoed for %d seconds\n", hashTx.ToString(), embargo_timeout);
+            CInv inv(MSG_DANDELION_TX, hashTx);
+            if (!node.connman->localDandelionDestinationPushInventory(inv)) {
+                return TransactionError::MEMPOOL_ERROR;
+            }
+            return TransactionError::OK;
+        }
+
+        // ..or otherwise just as standard
         RelayTransaction(hashTx, tx->GetWitnessHash(), *node.connman);
     }
 

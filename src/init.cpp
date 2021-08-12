@@ -282,6 +282,7 @@ void Shutdown(NodeContext& node)
     /// module was initialized.
     util::ThreadRename("shutoff");
     if (node.mempool) node.mempool->AddTransactionsUpdated(1);
+    if (node.stempool) node.stempool->AddTransactionsUpdated(1);
 
     StopHTTPRPC();
     StopREST();
@@ -1626,11 +1627,22 @@ bool AppInitMain(const util::Ref& context, NodeContext& node, interfaces::BlockA
         }
     }
 
+    // Make stempool generally available in the node context. For example the connection manager, wallet, or RPC threads,
+    // which are all started after this, may use it from the node context.
+    assert(!node.stempool);
+    node.stempool = MakeUnique<CTxMemPool>(&::feeEstimator);
+    if (node.stempool) {
+        int ratio = std::min<int>(std::max<int>(args.GetArg("-checkstempool", chainparams.DefaultConsistencyChecks() ? 1 : 0), 0), 1000000);
+        if (ratio != 0) {
+            node.stempool->setSanityCheck(1.0 / ratio);
+        }
+    }
+
     assert(!node.chainman);
     node.chainman = &g_chainman;
     ChainstateManager& chainman = *Assert(node.chainman);
 
-    node.peerman.reset(new PeerManager(chainparams, *node.connman, node.banman.get(), *node.scheduler, chainman, *node.mempool));
+    node.peerman.reset(new PeerManager(chainparams, *node.connman, node.banman.get(), *node.scheduler, chainman, *node.mempool, *node.stempool));
     g_peerman = node.peerman.get(); // Hack: For Misbehaving
     RegisterValidationInterface(node.peerman.get());
 
@@ -1843,7 +1855,7 @@ bool AppInitMain(const util::Ref& context, NodeContext& node, interfaces::BlockA
             const int64_t load_block_index_start_time = GetTimeMillis();
             try {
                 LOCK(cs_main);
-                chainman.InitializeChainstate(*Assert(node.mempool));
+                chainman.InitializeChainstate(*Assert(node.mempool), *Assert(node.stempool));
                 chainman.m_total_coinstip_cache = nCoinCacheUsage;
                 chainman.m_total_coinsdb_cache = nCoinDBCache;
 
@@ -1979,7 +1991,7 @@ bool AppInitMain(const util::Ref& context, NodeContext& node, interfaces::BlockA
             }
 
             // Initialise temporary indices if required
-            if (!RebuildRollingIndices(node.mempool.get())) {
+            if (!RebuildRollingIndices(node.mempool.get(), node.stempool.get())) {
                 strLoadError = _("Failed to rebuild rolling indices by rewinding the chain, a reindex is required.");
                 break;
             }
@@ -2207,6 +2219,8 @@ bool AppInitMain(const util::Ref& context, NodeContext& node, interfaces::BlockA
 #endif
     }
 
+    LogPrintf("Dandelion transactions %s\n", args.GetBoolArg("-dandelion", DEFAULT_DANDELION) ? "enabled" : "disabled");
+
     if (ShutdownRequestedMainThread()) {
         return false;
     }
@@ -2339,6 +2353,11 @@ bool AppInitMain(const util::Ref& context, NodeContext& node, interfaces::BlockA
     node.scheduler->scheduleEvery([banman]{
         banman->DumpBanlist();
     }, DUMP_BANS_INTERVAL);
+
+    CConnman* connman = node.connman.get();
+    node.scheduler->scheduleEvery([connman]{
+        connman->ThreadDandelionShuffle();
+    }, std::chrono::milliseconds{1000});
 
 #if HAVE_SYSTEM
     StartupNotify(args);
