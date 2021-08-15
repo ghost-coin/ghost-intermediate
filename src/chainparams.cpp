@@ -347,14 +347,8 @@ public:
         consensus.smsg_fee_time = 0x5D2DBC40;           // 2019-07-16 12:00:00 UTC
         consensus.bulletproof_time = 0x5D2DBC40;        // 2019-07-16 12:00:00 UTC
         consensus.rct_time = 0x5D2DBC40;                // 2019-07-16 12:00:00 UTC
+
         consensus.smsg_difficulty_time = 0x5D2DBC40;    // 2019-07-16 12:00:00 UTC
-        consensus.exploit_fix_1_time = 1614992554;      // 2021-03-06 01:00:00 GMT+8
-        consensus.exploit_fix_2_time = 1626109200;      // 2021-07-12 17:00:00 UTC
-
-        consensus.m_frozen_anon_index = 27340;
-        consensus.m_frozen_blinded_height = 884433;
-
-
         consensus.smsg_fee_period = 5040;
         consensus.smsg_fee_funding_tx_per_k = 200000;
         consensus.smsg_fee_msg_per_day_per_k = 50000;
@@ -549,7 +543,6 @@ public:
         consensus.bulletproof_time = 0x5C67FB40;        // 2019-02-16 12:00:00
         consensus.rct_time = 0;
         consensus.smsg_difficulty_time = 0x5D19F5C0;    // 2019-07-01 12:00:00
-        consensus.exploit_fix_1_time = 1614268800;      // 2021-02-25 16:00:00
 
         consensus.smsg_fee_period = 5040;
         consensus.smsg_fee_funding_tx_per_k = 200000;

@@ -3283,9 +3283,6 @@ int CHDWallet::AddCTData(const CCoinControl *coinControl, CTxOutBase *txout, CTe
     }
 
     uint64_t nValue = r.nAmount;
-    if (coinControl && coinControl->m_debug_exploit_anon > 0) {
-        nValue += coinControl->m_debug_exploit_anon;
-    }
     if (!secp256k1_pedersen_commit(secp256k1_ctx_blind,
         pCommitment, (uint8_t*)r.vBlind.data(),
         nValue, &secp256k1_generator_const_h, &secp256k1_generator_const_g)) {
@@ -3953,7 +3950,7 @@ int CHDWallet::AddStandardInputs(CWalletTx &wtx, CTransactionRecord &rtx,
                 auto &r = vecSend[i];
 
                 if (r.nType == OUTPUT_CT || r.nType == OUTPUT_RINGCT) {
-                    if ((int)i == nLastBlindedOutput && coinControl->m_debug_exploit_anon == 0) {
+                    if ((int)i == nLastBlindedOutput) {
                         r.vBlind.resize(32);
                         // Last to-be-blinded value: compute from all other blinding factors.
                         // sum of output blinding values must equal sum of input blinding values
@@ -4955,7 +4952,6 @@ int CHDWallet::PickHidingOutputs(std::vector<std::vector<int64_t> > &vMI,
     }
 
     const Consensus::Params &consensusParams = Params().GetConsensus();
-    bool exploit_fix_2_active = GetTime() >= consensusParams.exploit_fix_2_time;
     size_t min_ringsize = Params().IsMockableChain() ? MIN_RINGSIZE : Params().GetConsensus().m_min_ringsize_post_hf2; // Allow incorrect size for testing
     if (nRingSize < min_ringsize || nRingSize > MAX_RINGSIZE) {
         return wserrorN(1, sError, __func__, _("Ring size out of range [%d, %d]").translated, MIN_RINGSIZE, MAX_RINGSIZE);
@@ -4983,13 +4979,7 @@ int CHDWallet::PickHidingOutputs(std::vector<std::vector<int64_t> > &vMI,
     }
     int64_t min_anon_input = 1;
     int64_t available_outputs = nLastRCTOutIndex;
-    if (exploit_fix_2_active) {
-        available_outputs -= consensusParams.m_frozen_anon_index;
-        min_anon_input = consensusParams.m_frozen_anon_index + 1;
-        if (LogAcceptCategory(BCLog::HDWALLET)) {
-            WalletLogPrintf("%s: Set min anon input to %d.\n", __func__, min_anon_input);
-        }
-    }
+
     if (coinControl->m_mixin_selection_mode != MIXIN_SEL_DEBUG &&
         available_outputs < (int64_t)(nInputs * nRingSize)) {
         return wserrorN(1, sError, __func__, _("Not enough anon outputs exist, last: %d, required: %d").translated, available_outputs, nInputs * nRingSize);
@@ -11347,19 +11337,9 @@ void CHDWallet::AvailableBlindedCoins(std::vector<COutputR>& vCoins, bool fOnlyS
     bool allow_used_addresses = !IsWalletFlagSet(WALLET_FLAG_AVOID_REUSE) || (coinControl && !coinControl->m_avoid_address_reuse);
 
     const Consensus::Params &consensusParams = Params().GetConsensus();
-    bool exploit_fix_2_active = GetTime() >= consensusParams.exploit_fix_2_time;
     for (MapRecords_t::const_iterator it = mapRecords.begin(); it != mapRecords.end(); ++it) {
         const uint256 &txid = it->first;
         const CTransactionRecord &rtx = it->second;
-
-        if (exploit_fix_2_active && rtx.block_height > 0) { // height 0 is mempool
-            if (!spend_frozen && rtx.block_height <= consensusParams.m_frozen_blinded_height) {
-                continue;
-            } else
-            if (spend_frozen && rtx.block_height > consensusParams.m_frozen_blinded_height) {
-                continue;
-            }
-        }
 
         // TODO: implement when moving coinbase and coinstake txns to mapRecords
         //if (pcoin->GetBlocksToMaturity() > 0)
@@ -11405,14 +11385,6 @@ void CHDWallet::AvailableBlindedCoins(std::vector<COutputR>& vCoins, bool fOnlyS
 
             if (r.nValue < nMinimumAmount || r.nValue > nMaximumAmount) {
                 continue;
-            }
-
-            if (spend_frozen && !include_tainted_frozen) {
-                if (r.nValue > consensusParams.m_max_tainted_value_out) {
-                    if (IsFrozenBlindOutput(txid)) {
-                        continue;
-                    }
-                }
             }
 
             if (coinControl && coinControl->HasSelected() && !coinControl->fAllowOtherInputs && !coinControl->IsSelected(COutPoint(txid, r.n))) {
@@ -11600,19 +11572,9 @@ void CHDWallet::AvailableAnonCoins(std::vector<COutputR> &vCoins, bool fOnlySafe
     CHDWalletDB wdb(GetDatabase());
 
     const Consensus::Params &consensusParams = Params().GetConsensus();
-    bool exploit_fix_2_active = GetTime() >= consensusParams.exploit_fix_2_time;
     for (MapRecords_t::const_iterator it = mapRecords.begin(); it != mapRecords.end(); ++it) {
         const uint256 &txid = it->first;
         const CTransactionRecord &rtx = it->second;
-
-        if (exploit_fix_2_active && rtx.block_height > 0) { // height 0 is mempool
-            if (!spend_frozen && rtx.block_height <= consensusParams.m_frozen_blinded_height) {
-                continue;
-            } else
-            if (spend_frozen && rtx.block_height > consensusParams.m_frozen_blinded_height) {
-                continue;
-            }
-        }
 
         // TODO: implement when moving coinbase and coinstake txns to mapRecords
         //if (pcoin->GetBlocksToMaturity() > 0)
@@ -11652,19 +11614,6 @@ void CHDWallet::AvailableAnonCoins(std::vector<COutputR> &vCoins, bool fOnlySafe
 
             if (r.nValue < nMinimumAmount || r.nValue > nMaximumAmount) {
                 continue;
-            }
-
-            if (spend_frozen && !include_tainted_frozen) {
-                // TODO: Store pubkey on COutputRecord - in scriptPubKey
-                CStoredTransaction stx;
-                int64_t index;
-                if (!wdb.ReadStoredTx(txid, stx) ||
-                    !stx.tx->vpout[r.n]->IsType(OUTPUT_RINGCT) ||
-                    !pblocktree->ReadRCTOutputLink(((CTxOutRingCT*)stx.tx->vpout[r.n].get())->pk, index) ||
-                    IsBlacklistedAnonOutput(index) ||
-                    (!IsWhitelistedAnonOutput(index) && r.nValue > consensusParams.m_max_tainted_value_out)) {
-                    continue;
-                }
             }
 
             if (coinControl && coinControl->HasSelected() && !coinControl->fAllowOtherInputs && !coinControl->IsSelected(COutPoint(txid, r.n))) {

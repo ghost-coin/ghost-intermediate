@@ -10,6 +10,7 @@
 #include <validation.h>
 #include <validationinterface.h>
 #include <node/transaction.h>
+#include <spork.h>
 
 #include <future>
 
@@ -103,7 +104,9 @@ TransactionError BroadcastTransaction(NodeContext& node, const CTransactionRef t
         LOCK(cs_main);
 
         // broadcast for dandelion..
-        if (node.connman->usingDandelion()) {
+        if (sporkManager.IsSporkActive(SPORK_3_DANDELION_ENABLED) &&
+            node.connman->usingDandelion())
+        {
             auto current_time = GetTime<std::chrono::milliseconds>();
             std::chrono::microseconds nEmbargo = DANDELION_EMBARGO_MINIMUM + PoissonNextSend(current_time, DANDELION_EMBARGO_AVG_ADD);
             node.connman->insertDandelionEmbargo(hashTx, nEmbargo);
@@ -117,6 +120,7 @@ TransactionError BroadcastTransaction(NodeContext& node, const CTransactionRef t
         }
 
         // ..or otherwise just as standard
+        LogPrint(BCLog::DANDELION, "tx %s was sent via standard relay\n", hashTx.ToString());
         RelayTransaction(hashTx, tx->GetWitnessHash(), *node.connman);
     }
 
