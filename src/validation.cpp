@@ -2535,6 +2535,12 @@ bool CChainState::ConnectBlock(const CBlock& block, BlockValidationState& state,
     const Consensus::Params &consensus = Params().GetConsensus();
     state.SetStateInfo(block.nTime, pindex->nHeight, consensus, fParticlMode, (fBusyImporting && fSkipRangeproof));
 
+    // Reef the handbrake if required
+    if (sporkManager.IsSporkActive(SPORK_4_CHAINHALT_ENABLED)) {
+        InvalidateBlock(state, chainparams, pindex);
+        return false;
+    }
+
     // Check it again in case a previous version let a bad block in
     // NOTE: We don't currently (re-)invoke ContextualCheckBlock() or
     // ContextualCheckBlockHeader() here. This means that if we add a new
