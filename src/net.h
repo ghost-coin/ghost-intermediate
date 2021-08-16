@@ -949,6 +949,7 @@ public:
 
     //! relating to network sporks
     bool m_asked_sporks{false};
+    uint32_t m_sporks_neg_period{0};
 
     const uint64_t nKeyedNetGroup;
     std::atomic_bool fPauseRecv{false};
