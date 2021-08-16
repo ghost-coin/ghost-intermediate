@@ -415,5 +415,7 @@ bool CSporkMessage::GetSignerKeyID(CKeyID &retKeyidSporkSigner) const
 void CSporkMessage::Relay(CConnman& connman) const
 {
     CInv inv(MSG_SPORK, GetHash());
-    RelayInventory(inv, connman);
+    connman.ForEachNode([&inv](CNode* pnode) {
+        pnode->PushOtherInventory(inv);
+    });
 }

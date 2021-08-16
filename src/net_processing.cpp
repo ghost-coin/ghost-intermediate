@@ -1783,14 +1783,6 @@ bool static AlreadyHave(const CInv& inv) EXCLUSIVE_LOCKS_REQUIRED(cs_main)
     return true;
 }
 
-void RelayInventory(const CInv& inv, const CConnman& connman)
-{
-    connman.ForEachNode([&inv](CNode* pnode) EXCLUSIVE_LOCKS_REQUIRED(::cs_main) {
-        AssertLockHeld(::cs_main);
-        pnode->PushOtherInventory(inv);
-    });
-}
-
 static void RelayTransaction(const CTransaction& tx, const CConnman& connman)
 {
     const uint256& txid = tx.GetHash();
@@ -3044,7 +3036,10 @@ void PeerManager::ProcessMessage(CNode& pfrom, const std::string& msg_type, CDat
     }
 
     if (pfrom.m_asked_sporks && ((GetAdjustedTime() - pfrom.m_sporks_neg_period) < 5)) {
-        return;
+        //! ignore new blocks until sporksync complete
+        if (msg_type == NetMsgType::BLOCK) {
+            return;
+        }
     }
 
     if (msg_type == NetMsgType::SENDADDRV2) {
