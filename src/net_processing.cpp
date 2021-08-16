@@ -1783,14 +1783,6 @@ bool static AlreadyHave(const CInv& inv) EXCLUSIVE_LOCKS_REQUIRED(cs_main)
     return true;
 }
 
-void RelayInventory(const CInv& inv, const CConnman& connman)
-{
-    connman.ForEachNode([&inv](CNode* pnode) EXCLUSIVE_LOCKS_REQUIRED(::cs_main) {
-        AssertLockHeld(::cs_main);
-        pnode->PushOtherInventory(inv);
-    });
-}
-
 static void RelayTransaction(const CTransaction& tx, const CConnman& connman)
 {
     const uint256& txid = tx.GetHash();
