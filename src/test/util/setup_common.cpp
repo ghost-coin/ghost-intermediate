@@ -163,7 +163,7 @@ TestingSetup::TestingSetup(const std::string& chainName, const std::vector<const
     m_node.mempool->setSanityCheck(1.0);
 
     m_node.chainman = &::g_chainman;
-    m_node.chainman->InitializeChainstate(*m_node.mempool);
+    m_node.chainman->InitializeChainstate(*m_node.mempool, *m_node.stempool);
     ::ChainstateActive().InitCoinsDB(
         /* cache_size_bytes */ 1 << 23, /* in_memory */ true, /* should_wipe */ false);
     assert(!::ChainstateActive().CanFlushToDisk());
@@ -187,7 +187,7 @@ TestingSetup::TestingSetup(const std::string& chainName, const std::vector<const
 
     m_node.banman = MakeUnique<BanMan>(GetDataDir() / "banlist.dat", nullptr, DEFAULT_MISBEHAVING_BANTIME);
     m_node.connman = MakeUnique<CConnman>(0x1337, 0x1337); // Deterministic randomness for tests.
-    m_node.peerman = MakeUnique<PeerManager>(chainparams, *m_node.connman, m_node.banman.get(), *m_node.scheduler, *m_node.chainman, *m_node.mempool);
+    m_node.peerman = MakeUnique<PeerManager>(chainparams, *m_node.connman, m_node.banman.get(), *m_node.scheduler, *m_node.chainman, *m_node.mempool, *m_node.stempool);
     {
         CConnman::Options options;
         options.m_msgproc = m_node.peerman.get();

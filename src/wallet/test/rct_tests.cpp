@@ -123,8 +123,8 @@ BOOST_AUTO_TEST_CASE(rct_test)
     LOCK(cs_main);
     int nSpendHeight = ::ChainActive().Tip()->nHeight;
     TxValidationState state;
-    state.m_exploit_fix_1 = true;
-    state.m_exploit_fix_2 = true;
+    //state.m_exploit_fix_1 = true;
+    //state.m_exploit_fix_2 = true;
     state.m_spend_height = nSpendHeight;
     CAmount txfee = 0;
     CCoinsViewCache &view = ::ChainstateActive().CoinsTip();
@@ -203,8 +203,8 @@ BOOST_AUTO_TEST_CASE(rct_test)
     LOCK(cs_main);
     int nSpendHeight = ::ChainActive().Tip()->nHeight;
     TxValidationState state;
-    state.m_exploit_fix_1 = true;
-    state.m_exploit_fix_2 = true;
+    //state.m_exploit_fix_1 = true;
+    //state.m_exploit_fix_2 = true;
     state.m_spend_height = nSpendHeight;
     CAmount txfee = 0;
     CCoinsViewCache &view = ::ChainstateActive().CoinsTip();
@@ -377,8 +377,8 @@ BOOST_AUTO_TEST_CASE(rct_test)
     CTransaction tx1(mtx1), tx2(mtx2);
     int nSpendHeight = ::ChainActive().Tip()->nHeight;
     TxValidationState tx_state;
-    tx_state.m_exploit_fix_1 = true;
-    tx_state.m_exploit_fix_2 = true;
+    //tx_state.m_exploit_fix_1 = true;
+    //tx_state.m_exploit_fix_2 = true;
     tx_state.m_spend_height = nSpendHeight;
     CAmount txfee = 0;
     {

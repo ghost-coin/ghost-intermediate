@@ -29,7 +29,7 @@ BOOST_FIXTURE_TEST_CASE(tx_mempool_block_doublespend, TestChain100Setup)
         LOCK(cs_main);
 
         TxValidationState state;
-        return AcceptToMemoryPool(*m_node.mempool, state, MakeTransactionRef(tx),
+        return AcceptToMemoryPool(*m_node.mempool, *m_node.stempool, state, MakeTransactionRef(tx),
             nullptr /* plTxnReplaced */, true /* bypass_limits */);
     };
 

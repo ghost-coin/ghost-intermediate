@@ -72,7 +72,7 @@ BOOST_AUTO_TEST_CASE(frozen_blinded_test)
     SetNumBlocksOfPeers(0);
 
     // Disable rct mint fix
-    RegtestParams().GetConsensus_nc().exploit_fix_1_time = 0xffffffff;
+    //RegtestParams().GetConsensus_nc().exploit_fix_1_time = 0xffffffff;
     BOOST_REQUIRE(RegtestParams().GenesisBlock().GetHash() == ::ChainActive().Tip()->GetBlockHash());
 
     // Import the regtest genesis coinbase keys
@@ -141,7 +141,7 @@ BOOST_AUTO_TEST_CASE(frozen_blinded_test)
     BOOST_CHECK(blockbalances.anon() < -49770 * COIN);
 
     // Enable fix
-    RegtestParams().GetConsensus_nc().exploit_fix_1_time = nTime + 1;
+    // RegtestParams().GetConsensus_nc().exploit_fix_1_time = nTime + 1;
     while (GetTime() < nTime + 1) {
         std::this_thread::sleep_for(std::chrono::milliseconds(250));
     }
@@ -171,8 +171,8 @@ BOOST_AUTO_TEST_CASE(frozen_blinded_test)
 
     // Set frozen blinded markers
     const CBlockIndex *tip = ::ChainActive().Tip();
-    RegtestParams().GetConsensus_nc().m_frozen_anon_index = tip->nAnonOutputs;
-    RegtestParams().GetConsensus_nc().m_frozen_blinded_height = tip->nHeight;
+    //RegtestParams().GetConsensus_nc().m_frozen_anon_index = tip->nAnonOutputs;
+    //RegtestParams().GetConsensus_nc().m_frozen_blinded_height = tip->nHeight;
 
     BOOST_CHECK_NO_THROW(rv = CallRPC("debugwallet {\"list_frozen_outputs\":true}", context));
     size_t num_spendable = rv["num_spendable"].get_int();
@@ -185,7 +185,7 @@ BOOST_AUTO_TEST_CASE(frozen_blinded_test)
     BOOST_CHECK(rv["error"].get_str() == "Exploit repair fork is not active yet.");
 
     // Enable HF2
-    RegtestParams().GetConsensus_nc().exploit_fix_2_time = tip->nTime + 1;
+    //RegtestParams().GetConsensus_nc().exploit_fix_2_time = tip->nTime + 1;
     CAmount moneysupply_before_fork = tip->nMoneySupply;
 
     while (GetTime() < tip->nTime + 1) {
@@ -193,12 +193,12 @@ BOOST_AUTO_TEST_CASE(frozen_blinded_test)
     }
 
     // Test spend_frozen_output with num_spendable == 0
-    RegtestParams().GetConsensus_nc().m_max_tainted_value_out = 100;
+    //RegtestParams().GetConsensus_nc().m_max_tainted_value_out = 100;
     BOOST_CHECK_NO_THROW(rv = CallRPC("debugwallet {\"list_frozen_outputs\":true}", context));
     BOOST_CHECK(rv["num_spendable"].get_int() == 0);
     BOOST_CHECK_NO_THROW(rv = CallRPC("debugwallet {\"spend_frozen_output\":true}", context));
     BOOST_CHECK(rv["error"].get_str() == "No spendable outputs.");
-    RegtestParams().GetConsensus_nc().m_max_tainted_value_out = 500 * COIN;
+    //RegtestParams().GetConsensus_nc().m_max_tainted_value_out = 500 * COIN;
 
     BOOST_CHECK_NO_THROW(rv = CallRPC("debugwallet {\"list_frozen_outputs\":true}", context));
     BOOST_CHECK(rv["num_spendable"].get_int() > 0);
