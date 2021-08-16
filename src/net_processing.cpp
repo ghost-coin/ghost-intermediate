@@ -2885,6 +2885,7 @@ void PeerManager::ProcessMessage(CNode& pfrom, const std::string& msg_type, CDat
 
         // Ask for sporks if we havent already
         if (!pfrom.m_asked_sporks) {
+            pfrom.m_sporks_neg_period = GetAdjustedTime();
             m_connman.PushMessage(&pfrom, CNetMsgMaker(greatest_common_version).Make(NetMsgType::GETSPORKS));
             pfrom.m_asked_sporks = true;
         }
@@ -3033,6 +3034,16 @@ void PeerManager::ProcessMessage(CNode& pfrom, const std::string& msg_type, CDat
                 g_wtxid_relay_peers++;
             }
         }
+        return;
+    }
+
+    //! we 'surround' this conditional to ensure all sporks sync before any data
+
+    if (msg_type == NetMsgType::SPORK || msg_type == NetMsgType::GETSPORKS) {
+        sporkManager.ProcessSpork(&pfrom, msg_type, vRecv, m_connman, *g_peerman);
+    }
+
+    if (pfrom.m_asked_sporks && ((GetAdjustedTime() - pfrom.m_sporks_neg_period) < 5)) {
         return;
     }
 
@@ -4330,11 +4341,6 @@ void PeerManager::ProcessMessage(CNode& pfrom, const std::string& msg_type, CDat
     }
 
     if (smsg::SMSG_UNKNOWN_MESSAGE != smsgModule.ReceiveData(this, &pfrom, msg_type, vRecv)) {
-        return;
-    }
-
-    if(msg_type == NetMsgType::SPORK || msg_type == NetMsgType::GETSPORKS) {
-        sporkManager.ProcessSpork(&pfrom, msg_type, vRecv, m_connman, *g_peerman);
         return;
     }
 
