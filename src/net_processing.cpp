@@ -3036,10 +3036,7 @@ void PeerManager::ProcessMessage(CNode& pfrom, const std::string& msg_type, CDat
     }
 
     if (pfrom.m_asked_sporks && ((GetAdjustedTime() - pfrom.m_sporks_neg_period) < 5)) {
-        //! ignore new blocks until sporksync complete
-        if (msg_type == NetMsgType::BLOCK) {
-            return;
-        }
+        return;
     }
 
     if (msg_type == NetMsgType::SENDADDRV2) {
