@@ -2877,7 +2877,6 @@ void PeerManager::ProcessMessage(CNode& pfrom, const std::string& msg_type, CDat
 
         // Ask for sporks if we havent already
         if (!pfrom.m_asked_sporks) {
-            pfrom.m_sporks_neg_period = GetAdjustedTime();
             m_connman.PushMessage(&pfrom, CNetMsgMaker(greatest_common_version).Make(NetMsgType::GETSPORKS));
             pfrom.m_asked_sporks = true;
         }
@@ -3029,13 +3028,9 @@ void PeerManager::ProcessMessage(CNode& pfrom, const std::string& msg_type, CDat
         return;
     }
 
-    //! we 'surround' this conditional to ensure all sporks sync before any data
-
     if (msg_type == NetMsgType::SPORK || msg_type == NetMsgType::GETSPORKS) {
+        //! ProcessSpork internally mentions not to lock with cs_main...
         sporkManager.ProcessSpork(&pfrom, msg_type, vRecv, m_connman, *g_peerman);
-    }
-
-    if (pfrom.m_asked_sporks && ((GetAdjustedTime() - pfrom.m_sporks_neg_period) < 5)) {
         return;
     }
 
