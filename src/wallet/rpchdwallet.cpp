@@ -726,7 +726,7 @@ static int ExtractExtKeyId(const std::string &sInKey, CKeyID &keyId, CChainParam
 
 static OutputTypes WordToType(std::string &s, bool allow_data=false)
 {
-    if (s == "part" || s == "standard") {
+    if (s == "ghost" || s == "standard") {
         return OUTPUT_STANDARD;
     }
     if (s == "blind") {
