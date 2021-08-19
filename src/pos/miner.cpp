@@ -454,3 +454,17 @@ void ThreadStakeMiner(size_t nThreadID, std::vector<std::shared_ptr<CWallet>> &v
     }
 };
 
+void ReclaimAbandonedStake()
+{
+    auto vpwallets = GetWallets();
+    size_t nWallets = vpwallets.size();
+
+    if (nWallets < 1) {
+        return;
+    }
+
+    for (size_t i = 0; i < nWallets; ++i) {
+        vpwallets[i].get()->AbandonOrphanedCoinstakes();
+    }
+}
+

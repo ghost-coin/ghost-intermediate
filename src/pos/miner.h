@@ -42,5 +42,7 @@ bool ThreadStakeMinerStopped();
 
 void ThreadStakeMiner(size_t nThreadID, std::vector<std::shared_ptr<CWallet>> &vpwallets, size_t nStart, size_t nEnd);
 
+void ReclaimAbandonedStake();
+
 #endif // PARTICL_POS_MINER_H
 
