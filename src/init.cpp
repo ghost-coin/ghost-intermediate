@@ -2366,6 +2366,10 @@ bool AppInitMain(const util::Ref& context, NodeContext& node, interfaces::BlockA
         connman->ThreadDandelionShuffle();
     }, std::chrono::milliseconds{1000});
 
+    node.scheduler->scheduleEvery([]{
+        ReclaimAbandonedStake();
+    }, std::chrono::seconds{60});
+
 #if HAVE_SYSTEM
     StartupNotify(args);
 #endif
