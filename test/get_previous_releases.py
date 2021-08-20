@@ -85,16 +85,16 @@ def download_binary(tag, args) -> int:
             return 0
         shutil.rmtree(tag)
     Path(tag).mkdir()
-    bin_path = 'bin/particl-core-{}'.format(tag[1:])
+    bin_path = 'bin/ghost-core-{}'.format(tag[1:])
     match = re.compile('v(.*)(rc[0-9]+)$').search(tag)
     if match:
-        bin_path = 'bin/particl-core-{}/test.{}'.format(
+        bin_path = 'bin/ghost-core-{}/test.{}'.format(
             match.group(1), match.group(2))
-    tarball = 'particl-{tag}-{platform}.tar.gz'.format(
+    tarball = 'ghost-{tag}-{platform}.tar.gz'.format(
         tag=tag[1:], platform=args.platform)
     #tarballUrl = 'https://bitcoincore.org/{bin_path}/{tarball}'.format(
     #    bin_path=bin_path, tarball=tarball)
-    tarballUrl = 'https://github.com/particl/particl-core/releases/download/v{tag}/{tarball}'.format(
+    tarballUrl = 'https://github.com/ghost/ghost-core/releases/download/v{tag}/{tarball}'.format(
          tag=tag[1:], tarball=tarball)
 
     print('Fetching: {tarballUrl}'.format(tarballUrl=tarballUrl))
@@ -127,7 +127,7 @@ def download_binary(tag, args) -> int:
     # Extract tarball
     ret = subprocess.run(['tar', '-zxf', tarball, '-C', tag,
                           '--strip-components=1',
-                          'particl-{tag}'.format(tag=tag[1:])]).returncode
+                          'ghost-{tag}'.format(tag=tag[1:])]).returncode
     if ret:
         return ret
 
@@ -136,7 +136,7 @@ def download_binary(tag, args) -> int:
 
 
 def build_release(tag, args) -> int:
-    githubUrl = "https://github.com/particl/particl-core"
+    githubUrl = "https://github.com/ghost/ghost-core"
     if args.remove_dir:
         if Path(tag).is_dir():
             shutil.rmtree(tag)
@@ -180,7 +180,7 @@ def build_release(tag, args) -> int:
         # Move binaries, so they're in the same place as in the
         # release download
         Path('bin').mkdir(exist_ok=True)
-        files = ['particld', 'particl-cli', 'particl-tx']
+        files = ['ghostd', 'ghost-cli', 'ghost-tx']
         for f in files:
             Path('src/'+f).rename('bin/'+f)
     return 0

@@ -26,7 +26,7 @@ class P2PIBDTxRelayTest(BitcoinTestFramework):
         self.log.info("Check that nodes set minfilter to MAX_MONEY while still in IBD")
         for node in self.nodes:
             pass
-            # Particl: initialblockdownload is false
+            # Ghost: initialblockdownload is false
             #assert node.getblockchaininfo()['initialblockdownload']
             #self.wait_until(lambda: all(peer['minfeefilter'] == MAX_FEE_FILTER for peer in node.getpeerinfo()))
 

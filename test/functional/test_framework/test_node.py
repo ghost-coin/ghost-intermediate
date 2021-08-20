@@ -72,7 +72,7 @@ class TestNode():
 
         self.index = i
         self.datadir = datadir
-        self.bitcoinconf = os.path.join(self.datadir, "particl.conf")
+        self.bitcoinconf = os.path.join(self.datadir, "ghost.conf")
         self.stdout_dir = os.path.join(self.datadir, "stdout")
         self.stderr_dir = os.path.join(self.datadir, "stderr")
         self.chain = chain
@@ -558,7 +558,7 @@ class TestNode():
         wait_until_helper(lambda: self.num_test_p2p_connections() == 0, timeout_factor=self.timeout_factor)
 
     def tx(self, args):
-        binary = 'particl-tx'
+        binary = 'ghost-tx'
         p_args = [binary, '-regtest'] + args
 
         self.log.debug("Running bitcoin-tx command: %s" % ' '.join(args))

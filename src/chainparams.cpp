@@ -675,6 +675,11 @@ public:
         m_is_test_chain = true;
         m_is_mockable_chain = false;
 
+        // Private key:  6qnvC4cuz6Fb5cBXBVcTfJZfiYBrsC3UNPU6wr61cuE9yz6ubrA
+        // Address:      pdEmcAFUy6TLWjg2kuvVrP5ambhW3KzEJn
+        vSporkAddresses = {"pdEmcAFUy6TLWjg2kuvVrP5ambhW3KzEJn"};
+        nMinSporkKeys = 1;
+
         checkpointData = {
             {
                 {127620, uint256S("0xe5ab909fc029b253bad300ccf859eb509e03897e7853e8bfdde2710dbf248dd1")},
@@ -803,6 +808,11 @@ public:
         fRequireStandard = true;
         m_is_test_chain = true;
         m_is_mockable_chain = false;
+
+        // Private key:  DKXHWgYF9pbikLji2CWBh9JGB2f1DmfJhEj1YPZgSeEMHjSBSTN
+        // Address:      mo8UNHBhbXjpRiWmyABeZigaVVXzC38N4h
+        vSporkAddresses = {"mo8UNHBhbXjpRiWmyABeZigaVVXzC38N4h"};
+        nMinSporkKeys = 1;
     }
 };
 
@@ -944,8 +954,12 @@ public:
         chainTxData = ChainTxData{
             0,
             0,
-            0
-        };
+            0};
+
+        // Private key:  6qnvC4cuz6Fb5cBXBVcTfJZfiYBrsC3UNPU6wr61cuE9yz6ubrA
+        // Address:      pdEmcAFUy6TLWjg2kuvVrP5ambhW3KzEJn
+        vSporkAddresses = {"pdEmcAFUy6TLWjg2kuvVrP5ambhW3KzEJn"};
+        nMinSporkKeys = 1;
     }
 
     void SetOld()
@@ -966,6 +980,12 @@ public:
         base58Prefixes[EXT_SECRET_KEY] = {0x04, 0x35, 0x83, 0x94};
 
         bech32_hrp = "bcrt";
+
+
+        // Private key:  DKXHWgYF9pbikLji2CWBh9JGB2f1DmfJhEj1YPZgSeEMHjSBSTN
+        // Address:      mo8UNHBhbXjpRiWmyABeZigaVVXzC38N4h
+        vSporkAddresses = {"mo8UNHBhbXjpRiWmyABeZigaVVXzC38N4h"};
+        nMinSporkKeys = 1;
     }
 
     /**

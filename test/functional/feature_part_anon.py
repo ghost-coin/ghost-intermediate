@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
-# Copyright (c) 2017-2021 The Particl Core developers
+# Copyright (c) 2017-2021 The Ghost Core developers
 # Distributed under the MIT software license, see the accompanying
 # file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
 import random
-from test_framework.test_particl import ParticlTestFramework
+from test_framework.test_ghost import GhostTestFramework
 from test_framework.util import assert_raises_rpc_error
 from test_framework.address import base58_to_byte
 from test_framework.key import SECP256K1, ECPubKey
@@ -12,7 +12,7 @@ from test_framework.messages import COIN
 from test_framework.messages import sha256
 
 
-class AnonTest(ParticlTestFramework):
+class AnonTest(GhostTestFramework):
     def set_test_params(self):
         self.setup_clean_chain = True
         self.num_nodes = 3

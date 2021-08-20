@@ -3996,6 +3996,7 @@ bool CChainState::ActivateBestChain(BlockValidationState &state, const CChainPar
         {
             LOCK(cs_main);
             LOCK(m_mempool.cs); // Lock transaction pool for at least as long as it takes for connectTrace to be consumed
+            LOCK(m_stempool.cs);
             CBlockIndex* starting_tip = m_chain.Tip();
             bool blocks_connected = false;
             do {
