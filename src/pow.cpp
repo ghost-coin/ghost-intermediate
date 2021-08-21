@@ -132,6 +132,9 @@ unsigned int GetNextWorkRequiredPoS(const CBlockIndex* pindexLast, const CBlockH
 
 unsigned int GetNextWorkRequired(const CBlockIndex* pindexLast, const CBlockHeader *pblock, const Consensus::Params& params)
 {
+    if (params.fPowNoRetargeting)
+        return pindexLast->nBits;
+
     const CChainParams& chainparams = Params();
     if (pindexLast->nHeight + 1 >= params.nLWMADiffUpgradeHeight) {
         return LwmaCalculateNextWorkRequired(pindexLast, pblock);
