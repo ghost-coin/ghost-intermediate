@@ -4470,8 +4470,7 @@ static bool CheckBlockHeader(const CBlockHeader& block, BlockValidationState& st
     if (!hashPrevPtr) {
         const uint256& blockHash = block.GetHash();
         //! allow for genesis which has no parent
-        if (blockHash == consensusParams.hashGenesisBlock &&
-            pindexBestHeader->nHeight < 1) {
+        if (blockHash == consensusParams.hashGenesisBlock) {
             return true;
         }
         return state.Invalid(BlockValidationResult::BLOCK_INVALID_HEADER, "no-prevblk", "blockheader has no parent");
