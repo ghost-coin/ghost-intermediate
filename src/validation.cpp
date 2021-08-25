@@ -452,14 +452,13 @@ static void UpdateMempoolForReorg(CTxMemPool& mempool, CTxMemPool& stempool, Dis
         // ignore validation errors in resurrected transactions
         TxValidationState stateDummy;
         bool ret = !AcceptToMemoryPool(mempool, stempool, stateDummy, *it, nullptr, true, 0);
-        TxValidationState dandelionStateDummy;
-        if (!fAddToMempool || (*it)->IsCoinBase() || ret) {
+        if (!fAddToMempool || (*it)->IsCoinBase() || (*it)->IsCoinStake() || ret) {
             // If the transaction doesn't make it in to the mempool, remove any
             // transactions that depend on it (which would now be orphans).
             mempool.removeRecursive(**it, MemPoolRemovalReason::REORG);
             // Changes to mempool should also be made to Dandelion stempool
             stempool.removeRecursive(**it, MemPoolRemovalReason::REORG);
-        } else if (mempool.exists((*it)->GetHash())) {
+        } else if (mempool.exists((*it)->GetHash()) || stempool.exists((*it)->GetHash())) {
             vHashUpdate.push_back((*it)->GetHash());
         }
         ++it;
@@ -691,7 +690,7 @@ bool MemPoolAccept::PreChecks(ATMPArgs& args, Workspace& ws)
         return state.Invalid(TxValidationResult::TX_PREMATURE_SPEND, "non-final");
 
     // is it already in the memory pool?
-    if (m_pool.exists(hash)) {
+    if (m_pool.exists(hash) || s_pool.exists(hash)) {
         return state.Invalid(TxValidationResult::TX_CONFLICT, "txn-already-in-mempool");
     }
 
@@ -699,7 +698,7 @@ bool MemPoolAccept::PreChecks(ATMPArgs& args, Workspace& ws)
     for (const CTxIn &txin : tx.vin)
     {
         if (txin.IsAnonInput()) {
-            if (!CheckAnonInputMempoolConflicts(txin, hash, &m_pool, state)) {
+            if (!CheckAnonInputMempoolConflicts(txin, hash, &m_pool, &s_pool, state)) {
                 return false;
             }
             continue;
@@ -1177,6 +1176,7 @@ bool MemPoolAccept::AcceptSingleTransaction(const CTransactionRef& ptx, ATMPArgs
 {
     AssertLockHeld(cs_main);
     LOCK(m_pool.cs); // mempool "read lock" (held through GetMainSignals().TransactionAddedToMempool())
+    LOCK(s_pool.cs); // stempool "read lock" (held through GetMainSignals().TransactionAddedToMempool())
 
     Workspace workspace(ptx);
 
@@ -1198,6 +1198,7 @@ bool MemPoolAccept::AcceptSingleTransaction(const CTransactionRef& ptx, ATMPArgs
     if (!Finalize(args, workspace)) return false;
 
     GetMainSignals().TransactionAddedToMempool(ptx, m_pool.GetAndIncrementSequence());
+    GetMainSignals().TransactionAddedToMempool(ptx, s_pool.GetAndIncrementSequence());
 
     return true;
 }
@@ -3622,6 +3623,7 @@ bool CChainState::DisconnectTip(BlockValidationState& state, const CChainParams&
             // Drop the earliest entry, and remove its children from the mempool.
             auto it = disconnectpool->queuedTx.get<insertion_order>().begin();
             m_mempool.removeRecursive(**it, MemPoolRemovalReason::REORG);
+            m_stempool.removeRecursive(**it, MemPoolRemovalReason::REORG);
             disconnectpool->removeEntry(it);
         }
     }
@@ -3691,6 +3693,7 @@ bool CChainState::ConnectTip(BlockValidationState& state, const CChainParams& ch
 {
     AssertLockHeld(cs_main);
     AssertLockHeld(m_mempool.cs);
+    AssertLockHeld(m_stempool.cs);
 
     assert(pindexNew->pprev == m_chain.Tip());
     // Read block from disk.
@@ -3740,6 +3743,7 @@ bool CChainState::ConnectTip(BlockValidationState& state, const CChainParams& ch
     LogPrint(BCLog::BENCH, "  - Writing chainstate: %.2fms [%.2fs (%.2fms/blk)]\n", (nTime5 - nTime4) * MILLI, nTimeChainState * MICRO, nTimeChainState * MILLI / nBlocksTotal);
     // Remove conflicting transactions from the mempool.;
     m_mempool.removeForBlock(blockConnecting.vtx, pindexNew->nHeight);
+    m_stempool.removeForBlock(blockConnecting.vtx, pindexNew->nHeight);
     disconnectpool.removeForBlock(blockConnecting.vtx);
     // Update m_chain & related variables.
     m_chain.SetTip(pindexNew);
@@ -3995,7 +3999,8 @@ bool CChainState::ActivateBestChain(BlockValidationState &state, const CChainPar
         std::vector<uint256> connected_blocks;
         {
             LOCK(cs_main);
-            LOCK(m_mempool.cs); // Lock transaction pool for at least as long as it takes for connectTrace to be consumed
+            LOCK(m_mempool.cs);  // Lock transaction pool for at least as long as it takes for connectTrace to be consumed
+            LOCK(m_stempool.cs); // Lock transaction pool for at least as long as it takes for connectTrace to be consumed
             CBlockIndex* starting_tip = m_chain.Tip();
             bool blocks_connected = false;
             do {
@@ -4465,8 +4470,13 @@ static bool CheckBlockHeader(const CBlockHeader& block, BlockValidationState& st
         return state.Invalid(BlockValidationResult::BLOCK_INVALID_HEADER, "high-hash", "proof of work failed");
 
     // Check if we have the previous header
+    const CBlockIndex* hashPrevPtr = nullptr;
     const uint256& hashPrevBlock = block.hashPrevBlock;
-    const CBlockIndex* hashPrevPtr = LookupBlockIndex(hashPrevBlock);
+    {
+        LOCK(cs_main);
+        hashPrevPtr = LookupBlockIndex(hashPrevBlock);
+    }
+
     if (!hashPrevPtr) {
         const uint256& blockHash = block.GetHash();
         //! allow for genesis which has no parent
@@ -5931,7 +5941,7 @@ bool static LoadBlockIndexDB(ChainstateManager& chainman, const CChainParams& ch
 void CChainState::LoadMempool(const ArgsManager& args)
 {
     if (args.GetArg("-persistmempool", DEFAULT_PERSIST_MEMPOOL)) {
-        ::LoadMempool(m_mempool);
+        ::LoadMempool(m_mempool, m_stempool);
     }
     m_mempool.SetIsLoaded(!ShutdownRequested());
 }
@@ -6240,6 +6250,7 @@ bool CChainState::RewindBlockIndex(const CChainParams& params)
         {
             LOCK(cs_main);
             LOCK(m_mempool.cs);
+            LOCK(m_stempool.cs);
             // Make sure nothing changed from under us (this won't happen because RewindBlockIndex runs before importing/network are active)
             assert(tip == m_chain.Tip());
             if (tip == nullptr || tip->nHeight < nHeight) break;
@@ -6851,7 +6862,7 @@ int VersionBitsTipStateSinceHeight(const Consensus::Params& params, Consensus::D
 
 static const uint64_t MEMPOOL_DUMP_VERSION = 1;
 
-bool LoadMempool(CTxMemPool& pool)
+bool LoadMempool(CTxMemPool& pool, CTxMemPool& s_pool)
 {
     const CChainParams& chainparams = Params();
     int64_t nExpiryTimeout = gArgs.GetArg("-mempoolexpiry", DEFAULT_MEMPOOL_EXPIRY) * 60 * 60;
@@ -6888,6 +6899,7 @@ bool LoadMempool(CTxMemPool& pool)
             CAmount amountdelta = nFeeDelta;
             if (amountdelta) {
                 pool.PrioritiseTransaction(tx->GetHash(), amountdelta);
+                s_pool.PrioritiseTransaction(tx->GetHash(), amountdelta);
             }
             TxValidationState state;
             CBlockIndex* tip = ::ChainActive().Tip();
@@ -6896,8 +6908,11 @@ bool LoadMempool(CTxMemPool& pool)
             state.SetStateInfo(tip->nTime, tip->nHeight, consensus, fParticlMode, (fBusyImporting && fSkipRangeproof));
             if (nTime > nNow - nExpiryTimeout) {
                 LOCK(cs_main);
-                CTxMemPool dummy_pool;
+                CTxMemPool dummy_pool, dummy_pool2;
                 AcceptToMemoryPoolWithTime(chainparams, pool, dummy_pool, state, tx, nTime,
+                                           nullptr /* plTxnReplaced */, false /* bypass_limits */,
+                                           false /* test_accept */, nullptr /* fee */, false /* ignore_locks */);
+                AcceptToMemoryPoolWithTime(chainparams, s_pool, dummy_pool2, state, tx, nTime,
                                            nullptr /* plTxnReplaced */, false /* bypass_limits */,
                                            false /* test_accept */, nullptr /* fee */, false /* ignore_locks */);
                 if (state.IsValid()) {
@@ -6907,7 +6922,7 @@ bool LoadMempool(CTxMemPool& pool)
                     // wallet(s) having loaded it while we were processing
                     // mempool transactions; consider these as valid, instead of
                     // failed, but mark them as 'already there'
-                    if (pool.exists(tx->GetHash())) {
+                    if (pool.exists(tx->GetHash()) || s_pool.exists(tx->GetHash())) {
                         ++already_there;
                     } else {
                         ++failed;
@@ -6924,6 +6939,7 @@ bool LoadMempool(CTxMemPool& pool)
 
         for (const auto& i : mapDeltas) {
             pool.PrioritiseTransaction(i.first, i.second);
+            s_pool.PrioritiseTransaction(i.first, i.second);
         }
 
         // TODO: remove this try except in v0.22
@@ -6939,6 +6955,7 @@ bool LoadMempool(CTxMemPool& pool)
             // Ensure transactions were accepted to mempool then add to
             // unbroadcast set.
             if (pool.get(txid) != nullptr) pool.AddUnbroadcastTx(txid);
+            if (s_pool.get(txid) != nullptr) s_pool.AddUnbroadcastTx(txid);
         }
     } catch (const std::exception& e) {
         LogPrintf("Failed to deserialize mempool data on disk: %s. Continuing anyway.\n", e.what());
