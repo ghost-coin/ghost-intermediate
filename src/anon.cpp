@@ -21,8 +21,7 @@
 #include <chainparams.h>
 #include <txmempool.h>
 
-
-bool CheckAnonInputMempoolConflicts(const CTxIn &txin, const uint256 txhash, CTxMemPool *pmempool, TxValidationState &state)
+bool CheckAnonInputMempoolConflicts(const CTxIn &txin, const uint256 txhash, CTxMemPool *pmempool, CTxMemPool *pstempool, TxValidationState &state)
 {
     uint32_t nInputs, nRingSize;
     txin.GetAnonInfo(nInputs, nRingSize);
@@ -44,8 +43,8 @@ bool CheckAnonInputMempoolConflicts(const CTxIn &txin, const uint256 txhash, CTx
     for (size_t k = 0; k < nInputs; ++k) {
         const CCmpPubKey &ki = *((CCmpPubKey*)&vKeyImages[k*33]);
 
-        if (pmempool->HaveKeyImage(ki, txhashKI)
-            && txhashKI != txhash) {
+        if ((pmempool->HaveKeyImage(ki, txhashKI) && txhashKI != txhash) ||
+            (pstempool->HaveKeyImage(ki, txhashKI) && txhashKI != txhash)) {
             if (LogAcceptCategory(BCLog::RINGCT)) {
                 LogPrintf("%s: Duplicate keyimage detected in mempool %s, used in %s.\n", __func__,
                     HexStr(ki), txhashKI.ToString());

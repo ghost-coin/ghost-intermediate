@@ -1063,7 +1063,7 @@ CBlockFileInfo* GetBlockFileInfo(size_t n);
 bool DumpMempool(const CTxMemPool& pool);
 
 /** Load the mempool from disk. */
-bool LoadMempool(CTxMemPool& pool);
+bool LoadMempool(CTxMemPool& pool, CTxMemPool& s_pool);
 
 //! Check whether the block associated with this index entry is pruned or not.
 inline bool IsBlockPruned(const CBlockIndex* pblockindex)
@@ -1107,7 +1107,5 @@ DisconnectResult DisconnectBlock(const CBlock& block, const CBlockIndex* pindex,
 bool FlushStateToDisk(const CChainParams& chainParams, BlockValidationState &state, FlushStateMode mode, int nManualPruneHeight=0);
 bool FlushView(CCoinsViewCache *view, BlockValidationState& state, bool fDisconnecting);
 void UpdateTip(CTxMemPool& mempool, CTxMemPool& stempool, const CBlockIndex *pindexNew, const CChainParams& chainParams);
-
-bool exploit_fixtime_passed(uint32_t nTime);
 
 #endif // BITCOIN_VALIDATION_H
