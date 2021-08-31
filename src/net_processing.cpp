@@ -1847,7 +1847,7 @@ static void CheckDandelionEmbargoes(CTxMemPool& mempool, CTxMemPool& stempool, C
                 AcceptToMemoryPool(mempool, stempool, state, ptx, &lRemovedTxn, false /* bypass_limits */, 0 /* nAbsurdFee */);
                 LogPrint(BCLog::MEMPOOL, "AcceptToMemoryPool: accepted %s (poolsz %u txn, %u kB)\n",
                          iter->first.ToString(), mempool.size(), mempool.DynamicMemoryUsage() / 1000);
-                RelayTransaction(ptx->GetHash(), ptx->GetHash(), *connman);
+                RelayTransaction(ptx->GetHash(), ptx->GetWitnessHash(), *connman);
             }
             iter = connman->mDandelionEmbargo.erase(iter);
         } else {
