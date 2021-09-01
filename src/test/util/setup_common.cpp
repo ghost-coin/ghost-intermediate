@@ -162,6 +162,9 @@ TestingSetup::TestingSetup(const std::string& chainName, const std::vector<const
     m_node.mempool = MakeUnique<CTxMemPool>(&::feeEstimator);
     m_node.mempool->setSanityCheck(1.0);
 
+    m_node.stempool = MakeUnique<CTxMemPool>(&::feeEstimator);
+    m_node.stempool->setSanityCheck(1.0);
+
     m_node.chainman = &::g_chainman;
     m_node.chainman->InitializeChainstate(*m_node.mempool, *m_node.stempool);
     ::ChainstateActive().InitCoinsDB(
