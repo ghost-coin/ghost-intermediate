@@ -31,6 +31,22 @@ int CChainParams::GetCoinYearPercent(int year) const
     }
 };
 
+int64_t CChainParams::GetCoinYearReward(int64_t nTime) const
+{
+    static const int64_t nSecondsInYear = 365 * 24 * 60 * 60;
+
+    if (strNetworkID != "regtest") {
+        // Y1 5%, Y2 4%, Y3 3%, Y4 2%, ... YN 2%
+        int64_t nYearsSinceGenesis = (nTime - genesis.nTime) / nSecondsInYear;
+
+        if (nYearsSinceGenesis >= 0 && nYearsSinceGenesis < 3) {
+            return (5 - nYearsSinceGenesis) * CENT;
+        }
+    }
+
+    return nCoinYearReward;
+};
+
 CAmount CChainParams::GetBaseBlockReward() const
 {
     return nBlockReward;

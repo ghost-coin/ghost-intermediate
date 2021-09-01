@@ -106,6 +106,7 @@ public:
     uint32_t GetStakeTimestampMask(int /*nHeight*/) const { return nStakeTimestampMask; }
     int64_t GetBaseBlockReward() const;
     int GetCoinYearPercent(int year) const;
+    int64_t GetCoinYearReward(int64_t nTime) const;
     const TreasuryFundSettings *GetTreasuryFundSettings(int nHeight) const;
     const std::vector<std::pair<int64_t, TreasuryFundSettings> > &GetTreasuryFundSettings() const { return vTreasuryFundSettings; };
 

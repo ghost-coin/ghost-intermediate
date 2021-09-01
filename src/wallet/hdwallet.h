@@ -100,6 +100,7 @@ public:
     bool GetExtKey(const CKeyID &keyID, CStoredExtKey &extKeyOut) const;
 
     bool HaveTransaction(const uint256 &txhash) const EXCLUSIVE_LOCKS_REQUIRED(cs_wallet);
+    bool GetTransaction(const uint256 &txhash, CTransactionRef &tx) const EXCLUSIVE_LOCKS_REQUIRED(cs_wallet);
 
     int GetKey(const CKeyID &address, CKey &keyOut, CExtKeyAccount *&pa, CEKAKey &ak, CKeyID &idStealth) const;
     bool GetKey(const CKeyID &address, CKey &keyOut) const override;
@@ -263,8 +264,21 @@ public:
     int ExtKeyLoadAccountKeys(CHDWalletDB *pwdb, CExtKeyAccount *sea) EXCLUSIVE_LOCKS_REQUIRED(cs_wallet);
     int ExtKeyLoadAccount(CHDWalletDB *pwdb, const CKeyID &idAccount) EXCLUSIVE_LOCKS_REQUIRED(cs_wallet);
     int ExtKeyLoadAccounts();
+    /** Load loose extkeys to memory */
+    int ExtKeyLoadLoose();
+    /** Update in-memory loose extkey */
+    int ExtKeyReload(const CStoredExtKey *sek) EXCLUSIVE_LOCKS_REQUIRED(cs_wallet);
+    /** Prepare loose extkey lookahead
+     *  fake const for IsMine */
+    int ExtKeyAddLookAhead(CStoredExtKey *sek) const EXCLUSIVE_LOCKS_REQUIRED(cs_wallet);
+    /** Promote loose extkey lookahead key to saved key
+     *  fake const for IsMine */
+    int ExtKeyPromoteKey(CStoredExtKey *sek, uint32_t nChildKey) const EXCLUSIVE_LOCKS_REQUIRED(cs_wallet);
 
     int ExtKeySaveAccountToDB(CHDWalletDB *pwdb, const CKeyID &idAccount, CExtKeyAccount *sea) EXCLUSIVE_LOCKS_REQUIRED(cs_wallet);
+    /** Activate account in memory
+     *  add to mapExtAccounts and mapExtKeys
+     */
     int ExtKeyAddAccountToMaps(const CKeyID &idAccount, CExtKeyAccount *sea, bool fAddToLookAhead = true) EXCLUSIVE_LOCKS_REQUIRED(cs_wallet);
     int ExtKeyRemoveAccountFromMapsAndFree(CExtKeyAccount *sea) EXCLUSIVE_LOCKS_REQUIRED(cs_wallet);
     int ExtKeyRemoveAccountFromMapsAndFree(const CKeyID &idAccount) EXCLUSIVE_LOCKS_REQUIRED(cs_wallet);
@@ -315,12 +329,33 @@ public:
     bool FundTransaction(CMutableTransaction& tx, CAmount& nFeeRet, int& nChangePosInOut, bilingual_str& error, bool lockUnspents, const std::set<int>& setSubtractFeeFromOutputs, CCoinControl) override;
     bool SignTransaction(CMutableTransaction& tx) const override EXCLUSIVE_LOCKS_REQUIRED(cs_wallet);
 
+    /** Reset transaction creation state */
+    void ClearTxCreationState();
+
+    /**
+     * Create a new transaction paying the recipients with a set of coins
+     * selected by SelectCoins(); Also create the change output, when needed
+     * @note passing nChangePosInOut as -1 will result in setting a random position
+     */
     bool CreateTransaction(const std::vector<CRecipient>& vecSend, CTransactionRef& tx, CAmount& nFeeRet, int& nChangePosInOut,
                            bilingual_str& strFailReason, const CCoinControl& coin_control, FeeCalculation& fee_calc_out, bool sign = true) override;
     bool CreateTransaction(std::vector<CTempRecipient>& vecSend, CTransactionRef& tx, CAmount& nFeeRet, int& nChangePosInOut,
                            bilingual_str& strFailReason, const CCoinControl& coin_control, FeeCalculation& fee_calc_out, bool sign = true);
+    /** Test if mempool would accept tx */
+    bool TestMempoolAccept(const CTransactionRef &tx, std::string &sError, CAmount override_max_fee=-1) const;
+    /**
+     * Submit the transaction to the node's mempool and then relay to peers.
+     * Should be called after CreateTransaction unless you want to abort
+     * broadcasting the transaction.
+     *
+     * @param[in] tx The transaction to be broadcast.
+     * @param[in] mapValue key-values to be set on the transaction.
+     * @param[in] orderForm BIP 70 / BIP 21 order form details to be set on the transaction.
+     */
     void CommitTransaction(CTransactionRef tx, mapValue_t mapValue, std::vector<std::pair<std::string, std::string>> orderForm) override;
-    bool CommitTransaction(CWalletTx &wtxNew, CTransactionRecord &rtx, TxValidationState &state);
+    bool CommitTransaction(CWalletTx &wtxNew, CTransactionRecord &rtx, TxValidationState &state,
+                           mapValue_t mapValue, std::vector<std::pair<std::string, std::string>> orderForm,
+                           bool is_record=false, bool broadcast_tx=true, CAmount override_max_fee=-1);
 
     bool DummySignInput(CTxIn &tx_in, const CTxOut &txout, bool use_max_sig = false) const override;
 
@@ -344,7 +379,7 @@ public:
         std::vector<uint8_t> &vchEphemPK, uint32_t prefix, bool fHavePrefix, CKey &sShared, bool fNeedShared=false);
 
     int CheckForStealthAndNarration(const CTxOutBase *pb, const CTxOutData *pdata, std::string &sNarr);
-    bool FindStealthTransactions(const CTransaction &tx, mapValue_t &mapNarr);
+    void FindStealthTransactions(const CTransaction &tx, mapValue_t &mapNarr);
 
     bool ScanForOwnedOutputs(const CTransaction &tx, size_t &nCT, size_t &nRingCT, mapValue_t &mapNarr) EXCLUSIVE_LOCKS_REQUIRED(cs_wallet);
 
@@ -352,6 +387,7 @@ public:
     void PostProcessUnloadSpent();
 
     using CWallet::AddToSpends;
+    bool HaveSpend(const COutPoint &outpoint, const uint256 &txid) EXCLUSIVE_LOCKS_REQUIRED(cs_wallet);
     void AddToSpends(const uint256& wtxid) override EXCLUSIVE_LOCKS_REQUIRED(cs_wallet);
     bool AddToWalletIfInvolvingMe(const CTransactionRef& ptx, CWalletTx::Confirmation confirm, bool fUpdate) override EXCLUSIVE_LOCKS_REQUIRED(cs_wallet);
 
@@ -428,14 +464,14 @@ public:
     size_t CountColdstakeOutputs();
     void ClearMapTempRecords();
 
-    /* Return a script for a simple address type (normal/extended) */
-    bool GetScriptForAddress(CScript &script, const CBitcoinAddress &addr, bool fUpdate = false, std::vector<uint8_t> *vData = NULL, bool allow_stakeonly = false);
+    /** Return a script for any destination type (normal/stealth/extended) */
+    bool GetScriptForDest(CScript &script, const CTxDestination &dest, bool fUpdate = false, std::vector<uint8_t> *vData = nullptr, uint32_t *last_key = nullptr);
 
     bool SetReserveBalance(CAmount nNewReserveBalance);
     void SetStakeLimitHeight(int stake_limit);
     uint64_t GetStakeWeight() const;
     void AvailableCoinsForStaking(std::vector<COutput> &vCoins, int64_t nTime, int nHeight) const;
-    bool SelectCoinsForStaking(int64_t nTargetValue, int64_t nTime, int nHeight, std::set<std::pair<const CWalletTx*,unsigned int> >& setCoinsRet, int64_t& nValueRet) const;
+    bool SelectCoinsForStaking(int64_t nTargetValue, int64_t nTime, int nHeight, std::set<std::pair<const CWalletTx*,unsigned int> > &setCoinsRet, int64_t &nValueRet) const;
     bool CreateCoinStake(unsigned int nBits, int64_t nTime, int nBlockHeight, int64_t nFees, CMutableTransaction &txNew, CKey &key);
     bool SignBlock(CBlockTemplate *pblocktemplate, int nHeight, int64_t nSearchTime);
     std::unique_ptr<CBlockTemplate> CreateNewBlock();
@@ -471,6 +507,8 @@ public:
     CKeyID idDefaultAccount;
     ExtKeyAccountMap mapExtAccounts;
     ExtKeyMap mapExtKeys;
+    mutable LooseKeyMap mapLooseKeys;       // Keys derived from extkeys not attached to an account
+    mutable LooseKeyMap mapLooseLookAhead;
 
     mutable MapWallet_t mapTempWallet;
 
@@ -486,7 +524,7 @@ public:
     CAmount nStakeSplitThreshold;
     size_t nMaxStakeCombine = 3;
     int nWalletTreasuryFundCedePercent;
-    CBitcoinAddress rewardAddress;
+    CTxDestination m_reward_address = CNoDestination();
     int nStakeLimitHeight = 0; // for regtest, don't stake above nStakeLimitHeight
 
     mutable std::atomic_bool m_have_cached_stakeable_coins {false};
@@ -517,6 +555,8 @@ public:
     bool m_smsg_enabled = true;
     CAmount m_min_stakeable_value = 1;  // Wallet will not try to stake outputs below this value
     CAmount m_min_owned_value = 0;      // Wallet will ignore outputs below this value
+
+    std::map<CKeyID, uint32_t> m_derived_keys; // Allows multiple provisional derivations from the same extkey
 
 private:
     void ParseAddressForMetaData(const CTxDestination &addr, COutputRecord &rec);

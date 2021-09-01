@@ -470,6 +470,7 @@ libghost_wallet_a_SOURCES = \
   wallet/walletdb.cpp \
   blind.cpp \
   key/stealth.cpp \
+  pos/kernel.cpp \
   pos/miner.cpp \
   policy/rbf.cpp \
   wallet/walletutil.cpp \
