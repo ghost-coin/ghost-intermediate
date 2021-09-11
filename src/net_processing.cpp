@@ -1818,7 +1818,7 @@ static void RelayDandelionTransaction(const CTransaction& tx, CTxMemPool& mempoo
         TxValidationState state;
         CTransactionRef ptx = stempool.get(tx.GetHash());
         std::list<CTransactionRef> lRemovedTxn;
-        AcceptToMemoryPool(mempool, stempool, state, ptx, nullptr, false);
+        AcceptToMemoryPool(mempool, state, ptx, nullptr, false);
         LogPrint(BCLog::MEMPOOL, "AcceptToMemoryPool: peer=%d: accepted %s (poolsz %u txn, %u kB)\n",
                  pfrom->GetId(), tx.GetHash().ToString(), mempool.size(), mempool.DynamicMemoryUsage() / 1000);
         RelayTransaction(tx, *connman);
@@ -1844,7 +1844,7 @@ static void CheckDandelionEmbargoes(CTxMemPool& mempool, CTxMemPool& stempool, C
             CTransactionRef ptx = stempool.get(iter->first);
             if (ptx) {
                 std::list<CTransactionRef> lRemovedTxn;
-                AcceptToMemoryPool(mempool, stempool, state, ptx, &lRemovedTxn, false /* bypass_limits */, 0 /* nAbsurdFee */);
+                AcceptToMemoryPool(mempool, state, ptx, &lRemovedTxn, false /* bypass_limits */, 0 /* nAbsurdFee */);
                 LogPrint(BCLog::MEMPOOL, "AcceptToMemoryPool: accepted %s (poolsz %u txn, %u kB)\n",
                          iter->first.ToString(), mempool.size(), mempool.DynamicMemoryUsage() / 1000);
                 RelayTransaction(ptx->GetHash(), ptx->GetWitnessHash(), *connman);
@@ -2440,7 +2440,11 @@ void PeerManager::ProcessOrphanTx(std::set<uint256>& orphan_work_set)
         TxValidationState state;
         std::list<CTransactionRef> removed_txn;
 
-        if (AcceptToMemoryPool(m_mempool, m_stempool, state, porphanTx, &removed_txn, false /* bypass_limits */)) {
+        if (AcceptToMemoryPool(m_mempool, state, porphanTx, &removed_txn, false /* bypass_limits */)) {
+
+            TxValidationState dummy_state;
+            AcceptToMemoryPool(m_stempool, dummy_state, porphanTx, &removed_txn, false /* bypass_limits */);
+
             LogPrint(BCLog::MEMPOOL, "   accepted orphan tx %s\n", orphanHash.ToString());
             RelayTransaction(orphanHash, porphanTx->GetWitnessHash(), m_connman);
             for (unsigned int i = 0; i < porphanTx->GetNumVOuts(); i++) {
@@ -2503,7 +2507,6 @@ void PeerManager::ProcessOrphanTx(std::set<uint256>& orphan_work_set)
         }
     }
     m_mempool.check(&::ChainstateActive().CoinsTip());
-    m_stempool.check(&::ChainstateActive().CoinsTip());
 }
 
 /**
@@ -3501,10 +3504,11 @@ void PeerManager::ProcessMessage(CNode& pfrom, const std::string& msg_type, CDat
         }
 
         TxValidationState state;
+        TxValidationState dummy_state;
         std::list<CTransactionRef> lRemovedTxn;
 
-        if (AcceptToMemoryPool(m_mempool, m_stempool, state, ptx, &lRemovedTxn, false /* bypass_limits */)) {
-
+        if (AcceptToMemoryPool(m_mempool, state, ptx, &lRemovedTxn, false /* bypass_limits */)) {
+            AcceptToMemoryPool(m_stempool, dummy_state, ptx, &lRemovedTxn, false /* bypass_limits */);
             if (m_connman.isTxDandelionEmbargoed(tx.GetHash())) {
                 LogPrint(BCLog::DANDELION, "Embargoed dandeliontx %s found in mempool; removing from embargo map\n", tx.GetHash().ToString());
                 m_connman.removeDandelionEmbargo(tx.GetHash());
@@ -4279,7 +4283,7 @@ void PeerManager::ProcessMessage(CNode& pfrom, const std::string& msg_type, CDat
         LOCK(cs_main);
         if (m_connman.isDandelionInbound(&pfrom)) {
             if (!m_stempool.exists(inv.hash)) {
-                bool ret = AcceptToMemoryPool(m_mempool, m_stempool, state, ptx, &lRemovedTxn, false /* bypass_limits */, 0 /* nAbsurdFee */);
+                bool ret = AcceptToMemoryPool(m_stempool, state, ptx, &lRemovedTxn, false /* bypass_limits */, 0 /* nAbsurdFee */);
                 if (ret) {
                     LogPrint(BCLog::MEMPOOL, "AcceptToStemPool: peer=%d: accepted %s (poolsz %u txn, %u kB)\n",
                              pfrom.GetId(), tx.GetHash().ToString(), m_stempool.size(), m_stempool.DynamicMemoryUsage() / 1000);

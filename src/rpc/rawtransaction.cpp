@@ -1119,8 +1119,11 @@ static RPCHelpMan testmempoolaccept()
     CAmount fee{0};
     {
         LOCK(cs_main);
-        test_accept_res = AcceptToMemoryPool(mempool, stempool, state, std::move(tx),
+        test_accept_res = AcceptToMemoryPool(mempool, state, std::move(tx),
             nullptr /* plTxnReplaced */, false /* bypass_limits */, /* test_accept */ true, &fee, /* ignore_locks */ ignore_locks);
+        TxValidationState dummy_state;
+        AcceptToMemoryPool(stempool, state, std::move(tx),
+                           nullptr /* plTxnReplaced */, false /* bypass_limits */, /* test_accept */ true, &fee, /* ignore_locks */ ignore_locks);
     }
 
     // Check that fee does not exceed maximum fee
