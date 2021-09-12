@@ -288,7 +288,6 @@ BOOST_AUTO_TEST_CASE(mempool_locks_reorg)
             for (const auto& tx : txs) {
                 BOOST_REQUIRE(AcceptToMemoryPool(
                     *m_node.mempool,
-                    *m_node.stempool,
                     state,
                     tx,
                     &plTxnReplaced,
