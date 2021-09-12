@@ -8987,8 +8987,13 @@ bool CHDWallet::TestMempoolAccept(const CTransactionRef &tx, std::string &sError
     }
     TxValidationState state;
     CAmount fee{0};
-    bool accept_result = WITH_LOCK(cs_main, return AcceptToMemoryPool(*mempool, *stempool, state, tx, nullptr,
+    bool accept_result = WITH_LOCK(cs_main, return AcceptToMemoryPool(*mempool, state, tx, nullptr,
                                                                       false /* bypass_limits */, /* test_accept */ true, &fee, /* ignore_locks */ false));
+
+    TxValidationState dummy_state;
+    bool dummy_accept_result = WITH_LOCK(cs_main, return AcceptToMemoryPool(*stempool, dummy_state, tx, nullptr,
+                                                                            false /* bypass_limits */, /* test_accept */ true, &fee, /* ignore_locks */ false));
+
     if (!accept_result) {
         sError = state.GetRejectReason();
         return false;
